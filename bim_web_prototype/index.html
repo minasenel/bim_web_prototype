@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BİM Product Locator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .header h1 {
+            color: #e74c3c;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .search-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .search-form {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #e74c3c;
+        }
+
+        .search-button {
+            padding: 1rem 2rem;
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .search-button:hover {
+            background-color: #c0392b;
+        }
+
+        .search-button:active {
+            transform: translateY(1px);
+        }
+
+        .results-area {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            min-height: 200px;
+        }
+
+        .results-area.hidden {
+            display: none;
+        }
+
+        .loading {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+        }
+
+        .product-info {
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .product-name {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #e74c3c;
+            margin-bottom: 0.5rem;
+        }
+
+        .store-info {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border-left: 4px solid #e74c3c;
+        }
+
+        .store-name {
+            font-weight: 600;
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .store-details {
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .stock-info {
+            display: inline-block;
+            background: #27ae60;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .no-results {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 2rem;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid #f5c6cb;
+            margin-bottom: 1rem;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .search-form {
+                flex-direction: column;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>BİM Product Locator</h1>
+            <p>Find products and check availability at nearby stores</p>
+        </div>
+
+        <div class="search-section">
+            <form class="search-form" id="searchForm">
+                <input 
+                    type="text" 
+                    class="search-input" 
+                    id="searchInput" 
+                    placeholder="Enter product name (e.g., milk, bread, yogurt)"
+                    required
+                >
+                <button type="submit" class="search-button">Search</button>
+            </form>
+        </div>
+
+        <div class="results-area hidden" id="resultsArea">
+            <div class="loading" id="loadingMessage">
+                Searching for products...
+            </div>
+            
+            <div class="product-info hidden" id="productInfo">
+                <div class="product-name" id="productName"></div>
+                <div class="store-info">
+                    <div class="store-name" id="storeName"></div>
+                    <div class="store-details" id="storeDetails"></div>
+                    <div class="stock-info" id="stockInfo"></div>
+                </div>
+            </div>
+            
+            <div class="no-results hidden" id="noResults">
+                No products found. Please try a different search term.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class BimProductLocator {
+            constructor() {
+                this.searchForm = document.getElementById('searchForm');
+                this.searchInput = document.getElementById('searchInput');
+                this.resultsArea = document.getElementById('resultsArea');
+                this.loadingMessage = document.getElementById('loadingMessage');
+                this.productInfo = document.getElementById('productInfo');
+                this.noResults = document.getElementById('noResults');
+                
+                this.bindEvents();
+            }
+
+            bindEvents() {
+                this.searchForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.searchProducts();
+                });
+            }
+
+            async searchProducts() {
+                const query = this.searchInput.value.trim();
+                if (!query) return;
+
+                this.showResults();
+                this.showLoading();
+                this.hideProductInfo();
+                this.hideNoResults();
+
+                try {
+                    // Simulate API call delay
+                    await this.delay(1500);
+                    
+                    // Mock data - in real app, this would be an API call
+                    const mockResults = this.getMockResults(query);
+                    
+                    if (mockResults) {
+                        this.displayProduct(mockResults);
+                    } else {
+                        this.showNoResults();
+                    }
+                } catch (error) {
+                    this.showError('An error occurred while searching. Please try again.');
+                } finally {
+                    this.hideLoading();
+                }
+            }
+
+            getMockResults(query) {
+                // Mock product database
+                const mockProducts = {
+                    'milk': {
+                        name: 'Fresh Milk 1L',
+                        store: 'BİM Store - Kadıköy',
+                        address: 'Caferağa Mah. Moda Cad. No:123, Kadıköy/İstanbul',
+                        stock: '15 units available',
+                        distance: '0.8 km away'
+                    },
+                    'bread': {
+                        name: 'Whole Wheat Bread 500g',
+                        store: 'BİM Store - Beşiktaş',
+                        address: 'Sinanpaşa Mah. Beşiktaş Cad. No:456, Beşiktaş/İstanbul',
+                        stock: '8 units available',
+                        distance: '1.2 km away'
+                    },
+                    'yogurt': {
+                        name: 'Natural Yogurt 500g',
+                        store: 'BİM Store - Şişli',
+                        address: 'Teşvikiye Mah. Rumeli Cad. No:789, Şişli/İstanbul',
+                        stock: '22 units available',
+                        distance: '2.1 km away'
+                    },
+                    'cheese': {
+                        name: 'White Cheese 250g',
+                        store: 'BİM Store - Üsküdar',
+                        address: 'Mimar Sinan Mah. Üsküdar Cad. No:321, Üsküdar/İstanbul',
+                        stock: '12 units available',
+                        distance: '1.5 km away'
+                    }
+                };
+
+                const lowerQuery = query.toLowerCase();
+                return Object.keys(mockProducts).find(key => 
+                    key.includes(lowerQuery) || mockProducts[key].name.toLowerCase().includes(lowerQuery)
+                ) ? mockProducts[Object.keys(mockProducts).find(key => 
+                    key.includes(lowerQuery) || mockProducts[key].name.toLowerCase().includes(lowerQuery)
+                )] : null;
+            }
+
+            displayProduct(product) {
+                document.getElementById('productName').textContent = product.name;
+                document.getElementById('storeName').textContent = product.store;
+                document.getElementById('storeDetails').textContent = `${product.address} • ${product.distance}`;
+                document.getElementById('stockInfo').textContent = product.stock;
+                
+                this.showProductInfo();
+            }
+
+            showResults() {
+                this.resultsArea.classList.remove('hidden');
+            }
+
+            showLoading() {
+                this.loadingMessage.classList.remove('hidden');
+            }
+
+            hideLoading() {
+                this.loadingMessage.classList.add('hidden');
+            }
+
+            showProductInfo() {
+                this.productInfo.classList.remove('hidden');
+            }
+
+            hideProductInfo() {
+                this.productInfo.classList.add('hidden');
+            }
+
+            showNoResults() {
+                this.noResults.classList.remove('hidden');
+            }
+
+            hideNoResults() {
+                this.noResults.classList.add('hidden');
+            }
+
+            showError(message) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                errorDiv.textContent = message;
+                
+                this.resultsArea.insertBefore(errorDiv, this.resultsArea.firstChild);
+                
+                setTimeout(() => {
+                    errorDiv.remove();
+                }, 5000);
+            }
+
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+        }
+
+        // Initialize the app when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new BimProductLocator();
+        });
+    </script>
+</body>
+</html>
