@@ -22,9 +22,14 @@ app.get('/api/health', (_req: Request, res: Response) => {
 
 app.use('/api', apiRouter);
 
-// Static serving (optional): serve frontend build if needed later
-const frontendDist = path.resolve(__dirname, '../../frontend/dist');
-app.use(express.static(frontendDist));
+// Serve Angular build (dist/frontend/browser)
+const browserDist = path.resolve(__dirname, '../../frontend/dist/frontend/browser');
+app.use(express.static(browserDist));
+
+// SPA fallback (excluding API routes) - use RegExp for Express 5
+app.get(/^\/(?!api(\/|$)).*/, (_req: Request, res: Response) => {
+  res.sendFile(path.join(browserDist, 'index.html'));
+});
 
 app.listen(port, () => {
   // eslint-disable-next-line no-console
