@@ -210,4 +210,32 @@
   </div>
 </main>
 
+<!-- Chatbot Widget -->
+<div class="chatbot-widget">
+  <div class="chat-header" (click)="toggleChat()">
+    <span>🍳 Yemek Tarifi Asistanı</span>
+    <button>{{ isChatOpen ? '✕' : '💬' }}</button>
+  </div>
+  
+  <div class="chat-body" *ngIf="isChatOpen">
+    <div class="chat-messages" #chatContainer>
+      <div *ngFor="let msg of chatMessages" 
+           [class]="msg.type" 
+           class="message">
+        <div class="message-content">{{ msg.text }}</div>
+        <div class="message-time">{{ msg.time | date:'HH:mm' }}</div>
+      </div>
+    </div>
+    
+    <div class="chat-input">
+      <input [(ngModel)]="userMessage" 
+             placeholder="Sor... (örn: Mercimek çorbası nasıl yapılır?)"
+             (keyup.enter)="sendMessage()" />
+      <button (click)="sendMessage()" [disabled]="!userMessage.trim()">
+        Gönder
+      </button>
+    </div>
+  </div>
+</div>
+
 <router-outlet />

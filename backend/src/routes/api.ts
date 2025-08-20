@@ -113,4 +113,26 @@ apiRouter.get('/_db/nearestStore', async (req: Request, res: Response) => {
   res.json({ items: await nearestStoresDb(lat, lng, productId) });
 });
 
+// Chatbot endpoint - forwards to n8n workflow with Gemini integration
+apiRouter.post('/chatbot', async (req: Request, res: Response) => {
+  const { message, userId } = req.body;
+  
+  // Forward to n8n webhook for Gemini + Supabase processing
+  const webhook = process.env.N8N_CHATBOT_WEBHOOK_URL;
+  if (webhook) {
+    try {
+      const response = await callAutomation(webhook, { message, userId });
+      return res.json(response);
+    } catch (e) {
+      // Fallback response if n8n is unavailable
+      res.json({ 
+        error: 'Chatbot service temporarily unavailable',
+        message: 'Please try again later or contact support.'
+      });
+    }
+  }
+  
+  res.json({ error: 'Chatbot service not configured' });
+});
+
 

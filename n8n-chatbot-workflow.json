@@ -1,0 +1,173 @@
+{
+  "name": "BIM Chatbot with Gemini",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "chatbot",
+        "options": {
+          "responseData": "={{$json}}",
+          "responseDataType": "lastNode",
+          "responseCode": 200
+        }
+      },
+      "id": "Webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "httpHeaderAuth": "={{ { 'x-goog-api-key': $env.GOOGLE_AI_API_KEY } }}",
+        "sendBody": true,
+        "bodyParametersUi": {
+          "parameter": [
+            {
+              "name": "contents",
+              "value": "=[{\"parts\":[{\"text\":\"Sen bir yemek tarifi asistanısın. Kullanıcı tarif sorduğunda: 1. Tarifi kısa ve net açıkla 2. Gerekli malzemeleri listele 3. Bu malzemeleri BİM'de bulabileceğini belirt 4. JSON formatında yanıt ver: {\\\"recipe\\\": \\\"Kısa tarif açıklaması...\\\", \\\"ingredients\\\": [\\\"malzeme1\\\", \\\"malzeme2\\\"], \\\"cooking_time\\\": \\\"30 dakika\\\", \\\"difficulty\\\": \\\"Kolay\\\"}\"}]}]"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "Gemini API",
+      "name": "Gemini API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 5.5,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract ingredients from Gemini response\nconst geminiResponse = $input.first().json;\nconst content = geminiResponse.candidates[0].content.parts[0].text;\n\n// Try to parse JSON from response\nlet ingredients = [];\ntry {\n  const jsonMatch = content.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    const parsed = JSON.parse(jsonMatch[0]);\n    ingredients = parsed.ingredients || [];\n  }\n} catch (e) {\n  // Fallback: extract ingredients manually\n  const lines = content.split('\\n');\n  ingredients = lines\n    .filter(line => line.includes('malzeme') || line.includes('gerekli'))\n    .map(line => line.replace(/[\\-\\*]/g, '').trim());\n}\n\nreturn {\n  message: $('Webhook').first().json.message,\n  userId: $('Webhook').first().json.userId,\n  geminiResponse: content,\n  ingredients: ingredients\n};"
+      },
+      "id": "Extract Ingredients",
+      "name": "Extract Ingredients",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://host.docker.internal:3000/api/_db/searchProduct",
+        "options": {
+          "queryParametersUi": {
+            "parameter": [
+              {
+                "name": "q",
+                "value": "={{ $('Extract Ingredients').first().json.ingredients.join(' ') }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "Search Products",
+      "name": "Search Products",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 5.5,
+      "position": [1040, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://host.docker.internal:3000/api/_db/nearestStore",
+        "options": {
+          "queryParametersUi": {
+            "parameter": [
+              {
+                "name": "lat",
+                "value": "41.0082"
+              },
+              {
+                "name": "lng",
+                "value": "28.9784"
+              }
+            ]
+          }
+        }
+      },
+      "id": "Find Nearest Store",
+      "name": "Find Nearest Store",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 5.5,
+      "position": [1300, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format final response\nconst geminiResponse = $('Extract Ingredients').first().json.geminiResponse;\nconst products = $('Search Products').first().json.items || [];\nconst stores = $('Find Nearest Store').first().json.items || [];\nconst nearestStore = stores[0];\n\nconst response = {\n  type: 'chatbot_response',\n  recipe: geminiResponse,\n  available_products: products.slice(0, 5),\n  nearest_store: nearestStore ? {\n    name: nearestStore.name,\n    address: nearestStore.address,\n    distance: nearestStore.distanceKm.toFixed(1) + ' km'\n  } : null,\n  message: `Tarif hazır! Malzemeleri ${nearestStore ? nearestStore.name + ' (' + nearestStore.distanceKm.toFixed(1) + ' km uzaklıkta)' : 'BİM mağazalarında'} bulabilirsin.`\n};\n\nreturn response;"
+      },
+      "id": "Format Response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Gemini API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini API": {
+      "main": [
+        [
+          {
+            "node": "Extract Ingredients",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Ingredients": {
+      "main": [
+        [
+          {
+            "node": "Search Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Products": {
+      "main": [
+        [
+          {
+            "node": "Find Nearest Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Nearest Store": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
