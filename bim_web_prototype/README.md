@@ -164,3 +164,4 @@ bim_web_prototype/
 3. Start all services
 4. Open `http://localhost:3000`
 5. Start searching for products!
+# Test comment
