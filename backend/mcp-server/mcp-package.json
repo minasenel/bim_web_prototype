@@ -1,0 +1,20 @@
+{
+  "name": "bim-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP Server for BİM Product Finder with Supabase integration",
+  "main": "mcp-server.js",
+  "scripts": {
+    "start": "node mcp-server.js",
+    "dev": "nodemon mcp-server.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.44.4",
+    "dotenv": "^17.2.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": ["mcp", "supabase", "bim", "ai", "n8n"],
+  "author": "BİM Team",
+  "license": "MIT"
+}
