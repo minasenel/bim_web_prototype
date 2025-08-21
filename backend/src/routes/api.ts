@@ -2,9 +2,15 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { getSupabase } from '../db/connection';
 import { haversineDistanceKm } from '../services/geo';
-import { callAutomation } from '../mcp/bridge';
+import axios from 'axios';
 
 export const apiRouter = Router();
+
+// Simple automation function for calling n8n webhooks
+async function callAutomation(flowUrl: string, payload: unknown): Promise<unknown> {
+  const response = await axios.post(flowUrl, payload, { timeout: 15_000 });
+  return response.data;
+}
 
 async function searchProductsDb(q: string) {
   const supabase = getSupabase();
@@ -133,6 +139,148 @@ apiRouter.post('/chatbot', async (req: Request, res: Response) => {
   }
   
   res.json({ error: 'Chatbot service not configured' });
+});
+
+// Simple chatbot endpoint - works with minimal n8n workflow
+apiRouter.post('/chatbot-simple', async (req: Request, res: Response) => {
+  const { message, userId } = req.body;
+  
+  console.log('🔍 Simple chatbot endpoint called with:', { message, userId });
+  
+  try {
+    // 1. Önce n8n webhook'a gönder (AI tarif üretsin)
+    const webhook = process.env.N8N_CHATBOT_WEBHOOK_URL;
+    if (webhook) {
+      try {
+        console.log('📡 Calling minimal n8n webhook:', webhook);
+        const aiResponse = await callAutomation(webhook, { 
+          message, 
+          userId
+        });
+        console.log('✅ AI response received:', aiResponse);
+        console.log('📊 AI response type:', typeof aiResponse);
+        console.log('📊 AI response keys:', Object.keys(aiResponse || {}));
+        
+        // DEBUG: AI response'u detaylı incele
+        console.log('🔍 FULL AI RESPONSE:');
+        console.log(JSON.stringify(aiResponse, null, 2));
+        
+        // DEBUG: Content structure'ı kontrol et
+        if (aiResponse && typeof aiResponse === 'object' && aiResponse !== null) {
+          console.log('🔍 Content exists:', 'content' in aiResponse);
+          if ('content' in aiResponse && aiResponse.content && typeof aiResponse.content === 'object') {
+            console.log('🔍 Content type:', typeof aiResponse.content);
+            console.log('🔍 Content keys:', Object.keys(aiResponse.content));
+            
+            if ('parts' in aiResponse.content && Array.isArray(aiResponse.content.parts)) {
+              console.log('🔍 Parts length:', aiResponse.content.parts.length);
+              console.log('🔍 First part:', aiResponse.content.parts[0]);
+              
+              if (aiResponse.content.parts[0] && typeof aiResponse.content.parts[0] === 'object' && 'text' in aiResponse.content.parts[0]) {
+                console.log('🔍 Text found:', (aiResponse.content.parts[0] as any).text);
+              } else {
+                console.log('❌ Text not found in first part');
+              }
+            } else {
+              console.log('❌ Parts not found or not array');
+            }
+          } else {
+            console.log('❌ Content not found');
+          }
+        }
+        
+        // 2. AI yanıtından malzemeleri çıkar
+        let ingredients: string[] = [];
+        if (aiResponse && typeof aiResponse === 'object' && 'content' in aiResponse && 
+            aiResponse.content && typeof aiResponse.content === 'object' && 'parts' in aiResponse.content && 
+            Array.isArray(aiResponse.content.parts) && aiResponse.content.parts[0]) {
+          const aiText = (aiResponse.content.parts[0] as any).text;
+          
+          // JSON formatında yanıt varsa malzemeleri çıkar
+          try {
+            const jsonMatch = aiText.match(/```json\n([\s\S]*?)\n```/);
+            if (jsonMatch) {
+              const recipeData = JSON.parse(jsonMatch[1]);
+              ingredients = recipeData.ingredients || [];
+            }
+          } catch (parseError) {
+            console.log('❌ JSON parse error:', parseError);
+          }
+        }
+        
+        // 3. Malzemeleri database'de ara ve en yakın mağazaları bul
+        const supabase = getSupabase();
+        const ingredientStores: any[] = [];
+        
+        for (const ingredient of ingredients) {
+          console.log('🔍 Searching for ingredient:', ingredient);
+          
+          const { data: products, error } = await supabase
+            .from('products')
+            .select('*')
+            .ilike('name', `%${ingredient}%`)
+            .limit(5);
+          
+          if (products && products.length > 0) {
+            // Bu malzeme için en yakın mağazayı bul
+            const { data: stores } = await supabase
+              .from('stores')
+              .select('*')
+              .limit(10);
+            
+            if (stores && stores.length > 0) {
+              // Default Istanbul koordinatları (41.0082, 28.9784)
+              const storesWithDistance = stores.map(store => ({
+                ...store,
+                distanceKm: haversineDistanceKm(41.0082, 28.9784, Number(store.latitude), Number(store.longitude))
+              })).sort((a, b) => a.distanceKm - b.distanceKm);
+              
+              ingredientStores.push({
+                ingredient: ingredient,
+                found: true,
+                nearestStore: storesWithDistance[0],
+                alternativeStores: storesWithDistance.slice(1, 3)
+              });
+            }
+          } else {
+            ingredientStores.push({
+              ingredient: ingredient,
+              found: false,
+              message: `${ingredient} BİM'de bulunamadı`
+            });
+          }
+        }
+        
+        // 4. AI yanıtına mağaza bilgilerini ekle
+        const enhancedResponse = {
+          ...(typeof aiResponse === 'object' ? aiResponse : {}),
+          ingredientStores: ingredientStores
+        };
+        
+        return res.json(enhancedResponse);
+        
+      } catch (e) {
+        console.error('❌ n8n webhook error:', e);
+      }
+    }
+    
+    // Fallback response
+    res.json({ 
+      recipe: `${message} tarifi için AI servisi şu anda kullanılamıyor.`,
+      ingredients: [],
+      cooking_time: "Bilinmiyor",
+      difficulty: "Bilinmiyor",
+      instructions: "Lütfen tekrar deneyin.",
+      ingredientStores: []
+    });
+    
+  } catch (error) {
+    console.error('❌ Simple chatbot error:', error);
+    res.json({ 
+      error: 'Chatbot service error',
+      message: 'Lütfen tekrar deneyin.'
+    });
+  }
 });
 
 // Simplified MCP endpoint for n8n

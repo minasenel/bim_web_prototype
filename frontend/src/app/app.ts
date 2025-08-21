@@ -83,21 +83,37 @@ export class App {
     this.userMessage = '';
     
     try {
-      const response: any = await this.http.post('/api/chatbot', {
+      const response: any = await this.http.post('/api/chatbot-simple', {
         message,
         userId: 'user-' + Date.now()
       }).toPromise();
       
-      if (response && response.recipe) {
-        this.addBotMessage(response.message);
-        // Eğer ürünler varsa göster
-        if (response.available_products?.length > 0) {
-          this.addBotMessage(`Bulunan ürünler: ${response.available_products.map((p: any) => p.name).join(', ')}`);
+      if (response && response.content && response.content.parts && response.content.parts[0]) {
+        // n8n'den gelen AI yanıtını parse et
+        const aiText = response.content.parts[0].text;
+        
+        // JSON formatında yanıt varsa onu kullan
+        try {
+          const jsonMatch = aiText.match(/```json\n([\s\S]*?)\n```/);
+          if (jsonMatch) {
+            const recipeData = JSON.parse(jsonMatch[1]);
+            const botMessage = `${recipeData.recipe}\n\nMalzemeler: ${recipeData.ingredients.join(', ')}\n\nPişirme Süresi: ${recipeData.cooking_time}\nZorluk: ${recipeData.difficulty}\n\nYapılışı:\n${recipeData.instructions}`;
+            this.addBotMessage(botMessage);
+          } else {
+            this.addBotMessage(aiText);
+          }
+        } catch (parseError) {
+          this.addBotMessage(aiText);
         }
+      } else if (response && response.recipe) {
+        // Fallback response'dan gelen veri
+        const botMessage = `${response.recipe}\n\nMalzemeler: ${response.ingredients.join(', ')}\n\nPişirme Süresi: ${response.cooking_time}\nZorluk: ${response.difficulty}\n\nYapılışı:\n${response.instructions}`;
+        this.addBotMessage(botMessage);
       } else {
         this.addBotMessage('Üzgünüm, şu anda tarif bulamadım. Lütfen tekrar deneyin.');
       }
     } catch (error) {
+      console.error('Chatbot error:', error);
       this.addBotMessage('Bir hata oluştu. Lütfen tekrar deneyin.');
     }
   }
