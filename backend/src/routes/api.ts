@@ -532,4 +532,35 @@ apiRouter.post('/mcp/execute', async (req: Request, res: Response) => {
   }
 });
 
+// Chat endpoint - forwards to n8n workflow
+apiRouter.post('/chat', async (req: Request, res: Response) => {
+  try {
+    const { message, sessionId } = req.body;
+    
+    const webhookUrl = process.env.NODE_ENV === 'production' 
+      ? process.env.N8N_WEBHOOK_URL_PROD
+      : process.env.N8N_WEBHOOK_URL_TEST;
+    
+    if (!webhookUrl) {
+      return res.status(500).json({ error: 'Webhook URL not configured' });
+    }
+    
+    const response = await axios.post(webhookUrl, {
+      chatInput: message,
+      sessionId: sessionId
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      timeout: 15000
+    });
+    
+    res.json(response.data);
+    
+  } catch (error) {
+    console.error('Chat API Error:', error);
+    res.status(500).json({ error: 'Chat service unavailable' });
+  }
+});
+
 

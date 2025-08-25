@@ -22,8 +22,8 @@ app.get('/api/health', (_req: Request, res: Response) => {
 
 app.use('/api', apiRouter);
 
-// Serve Angular build (dist/frontend/browser)
-const browserDist = path.resolve(__dirname, '../../frontend/dist/frontend/browser');
+// Serve Angular build (dist/frontend)
+const browserDist = path.resolve(__dirname, '../../frontend/dist/frontend');
 app.use(express.static(browserDist));
 
 // SPA fallback (excluding API routes) - use RegExp for Express 5

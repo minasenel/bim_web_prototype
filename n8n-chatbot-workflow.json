@@ -1,173 +1,185 @@
 {
-  "name": "BIM Chatbot with Gemini",
+  "name": "BIM Chatbot (Cloud) - Gemini + Supabase",
   "nodes": [
     {
       "parameters": {
+        "httpMethod": "POST",
         "path": "chatbot",
-        "options": {
-          "responseData": "={{$json}}",
-          "responseDataType": "lastNode",
-          "responseCode": 200
-        }
+        "responseMode": "responseNode",
+        "options": {}
       },
       "id": "Webhook",
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1.2,
-      "position": [260, 300]
+      "typeVersion": 2.1,
+      "position": [200, 200]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "httpHeaderAuth": "={{ { 'x-goog-api-key': $env.GOOGLE_AI_API_KEY } }}",
-        "sendBody": true,
-        "bodyParametersUi": {
-          "parameter": [
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-1.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-1.5-flash"
+        },
+        "messages": {
+          "values": [
             {
-              "name": "contents",
-              "value": "=[{\"parts\":[{\"text\":\"Sen bir yemek tarifi asistanısın. Kullanıcı tarif sorduğunda: 1. Tarifi kısa ve net açıkla 2. Gerekli malzemeleri listele 3. Bu malzemeleri BİM'de bulabileceğini belirt 4. JSON formatında yanıt ver: {\\\"recipe\\\": \\\"Kısa tarif açıklaması...\\\", \\\"ingredients\\\": [\\\"malzeme1\\\", \\\"malzeme2\\\"], \\\"cooking_time\\\": \\\"30 dakika\\\", \\\"difficulty\\\": \\\"Kolay\\\"}\"}]}]"
+              "content": "SYSTEM:\nYalnızca geçerli JSON döndür. Çıktı formatın:\n{\n  \"recipe\": \"Kısa tarif açıklaması\",\n  \"ingredients\": [\"malzeme1\", \"malzeme2\", \"malzeme3\"],\n  \"cooking_time\": \"30 dakika\",\n  \"difficulty\": \"Kolay\",\n  \"instructions\": \"Adım adım yapılış\",\n  \"message\": \"Kısa, dostça açıklama\"\n}\nKurallar:\n- Türkçe yanıt ver.\n- Sadece JSON döndür, JSON dışı metin yazma.\n- Kullanıcı sadece selam verirse:\n  recipe: \"Tarif bekleniyor\", ingredients:[], cooking_time:\"\", difficulty:\"\", instructions:\"\", message:\"Merhaba! Hangi tarifi istersiniz?\"\n- Tarif istendiğinde alanları doldur.\n- message alanına mümkünse \"Malzemeleri BİM marketlerinde bulabilirsiniz.\" ekle."
+            },
+            {
+              "content": "={{$json.body?.message ?? $json.message ?? $json.query?.message ?? 'merhaba'}}"
             }
           ]
         },
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "json"
-            }
-          }
-        }
+        "options": {}
       },
-      "id": "Gemini API",
-      "name": "Gemini API",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 5.5,
-      "position": [520, 300]
+      "id": "Gemini",
+      "name": "Message a model",
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [500, 200],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GEMINI_CREDENTIAL_ID",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
     },
     {
       "parameters": {
-        "jsCode": "// Extract ingredients from Gemini response\nconst geminiResponse = $input.first().json;\nconst content = geminiResponse.candidates[0].content.parts[0].text;\n\n// Try to parse JSON from response\nlet ingredients = [];\ntry {\n  const jsonMatch = content.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    const parsed = JSON.parse(jsonMatch[0]);\n    ingredients = parsed.ingredients || [];\n  }\n} catch (e) {\n  // Fallback: extract ingredients manually\n  const lines = content.split('\\n');\n  ingredients = lines\n    .filter(line => line.includes('malzeme') || line.includes('gerekli'))\n    .map(line => line.replace(/[\\-\\*]/g, '').trim());\n}\n\nreturn {\n  message: $('Webhook').first().json.message,\n  userId: $('Webhook').first().json.userId,\n  geminiResponse: content,\n  ingredients: ingredients\n};"
+        "jsCode": "const raw = $json || {};\nfunction pick(v){return (v||'').toString().trim();}\nconst recipe = pick(raw.recipe || raw.instructions || raw.text || raw.message);\nconst ingredients = Array.isArray(raw.ingredients) ? raw.ingredients : [];\nconst cooking_time = pick(raw.cooking_time || raw.time);\nconst difficulty = pick(raw.difficulty);\nconst message = pick(raw.message);\n// Basit anahtar kelime üret\nconst keyword = ingredients.length ? ingredients.join(' ') : (recipe || message || 'süt');\nreturn [{ json: { recipe: recipe || 'Tarif bekleniyor', ingredients, cooking_time, difficulty, message: message || 'Merhaba! Hangi tarifi istersiniz?', keyword } }];"
       },
-      "id": "Extract Ingredients",
-      "name": "Extract Ingredients",
+      "id": "Normalize",
+      "name": "Normalize AI Output",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [780, 300]
+      "position": [760, 200]
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "http://host.docker.internal:3000/api/_db/searchProduct",
-        "options": {
-          "queryParametersUi": {
-            "parameter": [
-              {
-                "name": "q",
-                "value": "={{ $('Extract Ingredients').first().json.ingredients.join(' ') }}"
-              }
-            ]
-          }
+        "operation": "getAll",
+        "tableId": "products",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "name",
+              "condition": "ilike",
+              "keyValue": "={{ '%' + $json.keyword + '%' }}"
+            }
+          ]
         }
       },
-      "id": "Search Products",
-      "name": "Search Products",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 5.5,
-      "position": [1040, 300]
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "http://host.docker.internal:3000/api/_db/nearestStore",
-        "options": {
-          "queryParametersUi": {
-            "parameter": [
-              {
-                "name": "lat",
-                "value": "41.0082"
-              },
-              {
-                "name": "lng",
-                "value": "28.9784"
-              }
-            ]
-          }
+      "id": "SupabaseProducts",
+      "name": "Supabase - Products (ilike)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1020, 140],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase account"
         }
-      },
-      "id": "Find Nearest Store",
-      "name": "Find Nearest Store",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 5.5,
-      "position": [1300, 300]
+      }
     },
     {
       "parameters": {
-        "jsCode": "// Format final response\nconst geminiResponse = $('Extract Ingredients').first().json.geminiResponse;\nconst products = $('Search Products').first().json.items || [];\nconst stores = $('Find Nearest Store').first().json.items || [];\nconst nearestStore = stores[0];\n\nconst response = {\n  type: 'chatbot_response',\n  recipe: geminiResponse,\n  available_products: products.slice(0, 5),\n  nearest_store: nearestStore ? {\n    name: nearestStore.name,\n    address: nearestStore.address,\n    distance: nearestStore.distanceKm.toFixed(1) + ' km'\n  } : null,\n  message: `Tarif hazır! Malzemeleri ${nearestStore ? nearestStore.name + ' (' + nearestStore.distanceKm.toFixed(1) + ' km uzaklıkta)' : 'BİM mağazalarında'} bulabilirsin.`\n};\n\nreturn response;"
+        "operation": "getAll",
+        "tableId": "stores",
+        "returnAll": true
       },
-      "id": "Format Response",
+      "id": "SupabaseStores",
+      "name": "Supabase - Stores (all)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1020, 260],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const products = $items('Supabase - Products (ilike)').map(i=>i.json).slice(0,5);\nconst stores = $items('Supabase - Stores (all)').map(i=>i.json);\n// Varsayılan konum: İstanbul (geçici). İsterseniz webhook body.lat/lng kullanın.\nconst lat = 41.0082; const lng = 28.9784;\nfunction hav(lat1, lon1, lat2, lon2){\n  const R=6371, toRad=d=>d*Math.PI/180;\n  const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);\n  const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;\n  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));\n}\nconst storesSorted = stores.map(s=>({\n  ...s,\n  distanceKm: hav(lat, lng, Number(s.latitude), Number(s.longitude))\n})).sort((a,b)=>a.distanceKm-b.distanceKm);\nconst nearest = storesSorted[0] || null;\nreturn [{ json: { products, nearestStore: nearest } }];"
+      },
+      "id": "Nearest",
+      "name": "Compute Nearest Store",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1240, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ai = $items('Normalize AI Output')[0]?.json || {};\nconst enrich = $json || {};\nconst products = Array.isArray(enrich.products) ? enrich.products : [];\nconst nearest = enrich.nearestStore || null;\nconst response = {\n  type: 'chatbot_response',\n  recipe: ai.recipe,\n  available_products: products,\n  nearest_store: nearest ? {\n    name: nearest.name,\n    address: nearest.address,\n    distance: (nearest.distanceKm||0).toFixed(1) + ' km'\n  } : null,\n  message: ai.message || 'Tarif hazır! Malzemeleri BİM marketlerinde bulabilirsiniz.'\n};\nreturn [ { json: response } ];"
+      },
+      "id": "Format",
       "name": "Format Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1560, 300]
+      "position": [1460, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Content-Type", "value": "application/json" }
+            ]
+          }
+        }
+      },
+      "id": "Respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [1680, 200]
     }
   ],
   "connections": {
     "Webhook": {
       "main": [
+        [{ "node": "Message a model", "type": "main", "index": 0 }]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [{ "node": "Normalize AI Output", "type": "main", "index": 0 }]
+      ]
+    },
+    "Normalize AI Output": {
+      "main": [
         [
-          {
-            "node": "Gemini API",
-            "type": "main",
-            "index": 0
-          }
+          { "node": "Supabase - Products (ilike)", "type": "main", "index": 0 },
+          { "node": "Supabase - Stores (all)", "type": "main", "index": 0 }
         ]
       ]
     },
-    "Gemini API": {
+    "Supabase - Products (ilike)": {
       "main": [
-        [
-          {
-            "node": "Extract Ingredients",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Compute Nearest Store", "type": "main", "index": 0 }]
       ]
     },
-    "Extract Ingredients": {
+    "Supabase - Stores (all)": {
       "main": [
-        [
-          {
-            "node": "Search Products",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Compute Nearest Store", "type": "main", "index": 0 }]
       ]
     },
-    "Search Products": {
+    "Compute Nearest Store": {
       "main": [
-        [
-          {
-            "node": "Find Nearest Store",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Format Response", "type": "main", "index": 0 }]
       ]
     },
-    "Find Nearest Store": {
+    "Format Response": {
       "main": [
-        [
-          {
-            "node": "Format Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Respond to Webhook", "type": "main", "index": 0 }]
       ]
     }
-  }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" }
 }

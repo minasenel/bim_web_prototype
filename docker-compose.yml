@@ -10,7 +10,7 @@ services:
       - N8N_PROTOCOL=http
       - GENERIC_TIMEZONE=Europe/Istanbul
       - N8N_BASIC_AUTH_ACTIVE=false
-      - N8N_USER_MANAGEMENT_DISABLED=true
+      - N8N_USER_MANAGEMENT_DISABLED=false
       - WEBHOOK_URL=http://localhost:5678/
     volumes:
       - ./n8n_data:/home/node/.n8n
