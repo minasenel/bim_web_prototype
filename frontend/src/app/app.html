@@ -183,99 +183,105 @@
 </style>
 
 <main class="main">
-  <div style="max-width: 900px; width: 100%; margin: 0 auto;">
-    <h1>BİM Ürün Bulucu (Prototip)</h1>
-    <form (submit)="$event.preventDefault()">
-      <input placeholder="Ürün ara (örn: tencere)" #q style="padding: 10px; width: 70%;" />
-      <button (click)="search(q.value)" style="padding: 10px 16px;">Ara</button>
-    </form>
-    <div style="margin-top: 16px;">
-      <button (click)="locate()" style="padding: 6px 10px;">Konumumu Kullan</button>
-      <span *ngIf="coords">Konum: {{ coords?.latitude | number:'1.4-4' }}, {{ coords?.longitude | number:'1.4-4' }}</span>
+  <div class="page-layout">
+    <!-- Left: Search + Results -->
+    <div class="left-content">
+      <h1>BİM Ürün Bulucu (Prototip)</h1>
+      <form (submit)="$event.preventDefault()" class="search-form">
+        <input placeholder="Ürün ara (örn: tencere)" #q />
+        <button (click)="search(q.value)">Ara</button>
+      </form>
+      <div class="locate-row">
+        <button (click)="locate()">Konumumu Kullan</button>
+        <span *ngIf="coords">Konum: {{ coords?.latitude | number:'1.4-4' }}, {{ coords?.longitude | number:'1.4-4' }}</span>
+      </div>
+
+      <!-- Sonuçlar Bölümü (Arama çubuğunun hemen altında) -->
+      <section class="results-section">
+        <!-- Kategori Seçiliyse -->
+        <div *ngIf="selectedCategory" class="selected-category">
+          <button (click)="clearCategory()" class="back-btn">
+            ← Tüm Kategorilere Dön
+          </button>
+          <h3>
+            {{ selectedCategory }} Kategorisi
+          </h3>
+        </div>
+        
+        <!-- Kategori Sonuçları -->
+        <div *ngIf="selectedCategory && categoryResults.length > 0">
+          <h3>{{ selectedCategory }} Ürünleri ({{ categoryResults.length }} ürün)</h3>
+          <div class="products-grid">
+            <div *ngFor="let p of categoryResults" class="product-card">
+              <div class="product-info">
+                <h4>{{ p.name }}</h4>
+                <div class="brand-info">
+                  <span class="product-brand">{{ p.brand }}</span>
+                </div>
+                <p class="product-category">{{ p.category }}</p>
+              </div>
+              <div class="product-actions">
+                <button (click)="findNearest(p.id)" class="find-store-btn">
+                  En yakın mağazayı bul
+                </button>
+                <div *ngIf="nearest[p.id]" class="store-info">
+                  <span class="store-name">{{ nearest[p.id].name }}</span>
+                  <span class="store-distance">{{ nearest[p.id].distanceKm | number: '1.1-1' }} km</span>
+                  <span class="store-stock">Stok: {{ nearest[p.id].quantity }}</span>
+                </div>
+              </div>
+              <div class="brand-logo-container" *ngIf="p.brandLogo">
+                <img [src]="p.brandLogo" [alt]="p.brand + ' logo'" class="brand-logo" />
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Ana Arama Sonuçları -->
+        <div *ngIf="!selectedCategory">
+          <h3>Sonuçlar</h3>
+          <div *ngIf="results?.length === 0">Sonuç bulunamadı.</div>
+          <ul class="list-results">
+            <li *ngFor="let p of results">
+              <strong>{{ p.name }}</strong> 
+              <div class="brand-info">
+                <small>({{ p.brand }} — {{ p.category }})</small>
+              </div>
+              <div class="list-actions">
+                <button (click)="findNearest(p.id)">En yakın mağazayı bul</button>
+                <span *ngIf="nearest[p.id]"> → {{ nearest[p.id].name }} ({{ nearest[p.id].distanceKm | number: '1.1-1' }} km) Stok: {{ nearest[p.id].quantity }}</span>
+              </div>
+              <div class="brand-logo-container" *ngIf="p.brandLogo">
+                <img [src]="p.brandLogo" [alt]="p.brand + ' logo'" class="brand-logo" />
+              </div>
+            </li>
+          </ul>
+        </div>
+      </section>
     </div>
 
-    <!-- Sonuçlar Bölümü (Arama çubuğunun hemen altında) -->
-    <section style="margin-top: 24px;">
-      <!-- Kategori Seçiliyse -->
-      <div *ngIf="selectedCategory" style="margin-bottom: 20px;">
-        <button (click)="clearCategory()" style="padding: 8px 16px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
-          ← Tüm Kategorilere Dön
-        </button>
-        <h3 style="display: inline-block; margin-left: 16px; color: #333;">
-          {{ selectedCategory }} Kategorisi
-        </h3>
-      </div>
-      
-      <!-- Kategori Sonuçları -->
-      <div *ngIf="selectedCategory && categoryResults.length > 0">
-        <h3>{{ selectedCategory }} Ürünleri ({{ categoryResults.length }} ürün)</h3>
-        <div class="products-grid">
-          <div *ngFor="let p of categoryResults" class="product-card">
-            <div class="product-info">
-              <h4>{{ p.name }}</h4>
-              <div class="brand-info">
-                <span class="product-brand">{{ p.brand }}</span>
-              </div>
-              <p class="product-category">{{ p.category }}</p>
+    <!-- Right: Categories grid (sticky) -->
+    <aside class="right-sidebar">
+      <!-- Kategoriler Bölümü -->
+      <section class="categories-section">
+        <h3>Kategoriler</h3>
+        <div class="categories-grid">
+          <div *ngFor="let categoryData of categoriesWithImages" 
+               class="category-item"
+               (click)="searchByCategory(categoryData.category_name)">
+            <div class="category-image-container">
+              <img *ngIf="categoryData.image_url" 
+                   [src]="categoryData.image_url" 
+                   [alt]="categoryData.category_name + ' kategorisi'"
+                   class="category-image"
+                   (error)="onImageError($event)">
+              <div *ngIf="!categoryData.image_url" class="category-icon">🏷️</div>
             </div>
-            <div class="product-actions">
-              <button (click)="findNearest(p.id)" class="find-store-btn">
-                En yakın mağazayı bul
-              </button>
-              <div *ngIf="nearest[p.id]" class="store-info">
-                <span class="store-name">{{ nearest[p.id].name }}</span>
-                <span class="store-distance">{{ nearest[p.id].distanceKm | number: '1.1-1' }} km</span>
-                <span class="store-stock">Stok: {{ nearest[p.id].quantity }}</span>
-              </div>
-            </div>
-            <div class="brand-logo-container" *ngIf="p.brandLogo">
-              <img [src]="p.brandLogo" [alt]="p.brand + ' logo'" class="brand-logo" />
-            </div>
+            <div class="category-name">{{ categoryData.category_name }}</div>
           </div>
         </div>
-      </div>
-      
-      <!-- Ana Arama Sonuçları -->
-      <div *ngIf="!selectedCategory">
-        <h3>Sonuçlar</h3>
-        <div *ngIf="results?.length === 0">Sonuç bulunamadı.</div>
-        <ul>
-          <li *ngFor="let p of results" style="margin-bottom: 8px;">
-            <strong>{{ p.name }}</strong> 
-            <div class="brand-info">
-              <small>({{ p.brand }} — {{ p.category }})</small>
-            </div>
-            <div>
-              <button (click)="findNearest(p.id)">En yakın mağazayı bul</button>
-              <span *ngIf="nearest[p.id]"> → {{ nearest[p.id].name }} ({{ nearest[p.id].distanceKm | number: '1.1-1' }} km) Stok: {{ nearest[p.id].quantity }}</span>
-            </div>
-            <div class="brand-logo-container" *ngIf="p.brandLogo">
-              <img [src]="p.brandLogo" [alt]="p.brand + ' logo'" class="brand-logo" />
-            </div>
-          </li>
-        </ul>
-      </div>
-    </section>
-
-    <!-- Kategoriler Bölümü -->
-    <section class="categories-section" style="margin-top: 32px;">
-      <h3 style="margin-bottom: 20px; color: #333; font-size: 1.5rem;">Kategoriler</h3>
-      <div class="categories-grid">
-        <div *ngFor="let categoryData of categoriesWithImages" 
-             class="category-item"
-             (click)="searchByCategory(categoryData.category_name)">
-          <div class="category-image-container">
-            <img *ngIf="categoryData.image_url" 
-                 [src]="categoryData.image_url" 
-                 [alt]="categoryData.category_name + ' kategorisi'"
-                 class="category-image"
-                 (error)="onImageError($event)">
-            <div *ngIf="!categoryData.image_url" class="category-icon">🏷️</div>
-          </div>
-          <div class="category-name">{{ categoryData.category_name }}</div>
-        </div>
-      </div>
-    </section>
+      </section>
+    </aside>
   </div>
 </main>
 

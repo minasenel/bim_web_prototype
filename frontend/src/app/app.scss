@@ -345,3 +345,98 @@ ul li {
     }
   }
 }
+
+.page-layout {
+  display: grid;
+  grid-template-columns: 1fr 360px; // left flexible, right fixed
+  gap: 24px;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.left-content {
+  min-width: 0; // prevent overflow
+}
+
+.right-sidebar {
+  position: sticky;
+  top: 16px;
+  align-self: start;
+}
+
+.search-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  
+  input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    outline: none;
+  }
+  
+  button {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    background: #007bff;
+    color: white;
+    cursor: pointer;
+  }
+}
+
+.locate-row {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  
+  button {
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+  }
+}
+
+.results-section {
+  margin-top: 24px;
+}
+
+.selected-category {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  
+  .back-btn {
+    padding: 8px 16px;
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+}
+
+.list-results {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  
+  li {
+    margin-bottom: 12px;
+    position: relative;
+    padding-right: 96px;
+  }
+}
+
+// Ensure chatbot has room on the right
+@media (min-width: 1024px) {
+  .page-layout {
+    padding-right: 380px; // leave space for chatbot widget on large screens
+  }
+}
