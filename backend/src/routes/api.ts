@@ -12,24 +12,32 @@ async function callAutomation(flowUrl: string, payload: unknown): Promise<unknow
   return response.data;
 }
 
+// ... existing code ...
+
 async function searchProductsDb(q: string) {
   const supabase = getSupabase();
+  
+  // Hem ürün adında hem de marka adında arama yap
   const { data, error } = await supabase
-    .from('products')
-    .select('id, name, brand, category, stock:stock(quantity)')
-    .ilike('name', `%${q}%`)
+    .from('brands3')
+    .select('id, product_name, brand_name, category, stock(quantity)')
+    .or(`product_name.ilike.%${q}%,brand_name.ilike.%${q}%`)
     .limit(50);
+    
   if (error) throw error;
+  
   // Aggregate totalQuantity from related stock rows if present
   const items = (data || []).map((p: any) => ({
     id: p.id,
-    name: p.name,
-    brand: p.brand,
+    name: p.product_name,
+    brand: p.brand_name,
     category: p.category,
     totalQuantity: Array.isArray(p.stock) ? p.stock.reduce((a: number, s: any) => a + (s.quantity || 0), 0) : null,
   }));
   return items;
 }
+
+// ... existing code ...
 
 async function nearestStoresDb(lat: number, lng: number, productId?: number) {
   const supabase = getSupabase();
@@ -46,7 +54,7 @@ async function nearestStoresDb(lat: number, lng: number, productId?: number) {
       const { data: stk } = await supabase
         .from('stock')
         .select('quantity')
-        .eq('product_id', productId)
+        .eq('brands3_id', productId)  // 'product_id' yerine 'brands3_id' kullan
         .eq('store_id', s.id)
         .limit(1)
         .maybeSingle();
@@ -216,9 +224,9 @@ apiRouter.post('/chatbot-simple', async (req: Request, res: Response) => {
           console.log('🔍 Searching for ingredient:', ingredient);
           
           const { data: products, error } = await supabase
-            .from('products')
+            .from('brands3')
             .select('*')
-            .ilike('name', `%${ingredient}%`)
+            .ilike('product_name', `%${ingredient}%`)
             .limit(5);
           
           if (products && products.length > 0) {
@@ -448,9 +456,9 @@ apiRouter.post('/mcp/execute', async (req: Request, res: Response) => {
     switch(tool) {
       case 'search_products':
         const { data: products, error: pErr } = await supabase
-          .from('products')
+          .from('brands3')
           .select('*')
-          .ilike('name', `%${args.query}%`);
+          .or(`product_name.ilike.%${args.query}%,brand_name.ilike.%${args.query}%`);
         if (pErr) throw pErr;
         result = { 
           products: products || [],
@@ -476,10 +484,10 @@ apiRouter.post('/mcp/execute', async (req: Request, res: Response) => {
           .from('stock')
           .select(`
             quantity,
-            products(id, name, brand, category),
-            stores(id, name, latitude, longitude, address)
+            brands3!inner(id, product_name, brand_name, category),
+            stores!inner(id, name, latitude, longitude, address)
           `)
-          .eq('product_id', args.productId)
+          .eq('brands3_id', args.productId)
           .gt('quantity', 0);
         if (stErr) throw stErr;
         result = { 
