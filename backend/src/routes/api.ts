@@ -751,4 +751,152 @@ apiRouter.post('/chat', async (req: Request, res: Response) => {
   }
 });
 
+// Kategorileri fotoğraflarıyla birlikte getiren endpoint
+apiRouter.get('/categories-with-images', async (req: Request, res: Response) => {
+  try {
+    const supabase = getSupabase();
+    
+    // brands3 tablosundan tüm kategorileri al
+    const { data: categoriesData, error: categoriesError } = await supabase
+      .from('brands3')
+      .select('category')
+      .order('category');
+    
+    if (categoriesError) throw categoriesError;
+    
+    // Benzersiz kategorileri al
+    const uniqueCategories = [...new Set(categoriesData?.map(item => item.category) || [])];
+    console.log('Brands3\'ten gelen kategoriler:', uniqueCategories);
+    
+    // Kategori fotoğraflarını al (image_url sütununu kullan)
+    const { data: imagesData, error: imagesError } = await supabase
+      .from('category_images')
+      .select('*');
+    
+    if (imagesError) throw imagesError;
+    
+    console.log('Category_images tablosundan gelen veriler:', imagesData);
+    
+    // Kategori isimlerini normalize et ve eşleştir
+    function normalizeCategoryName(name: string): string {
+      return name
+        .toLowerCase()
+        .replace(/[&]/g, 've')
+        .replace(/[ü]/g, 'u')
+        .replace(/[ı]/g, 'i')
+        .replace(/[ş]/g, 's')
+        .replace(/[ç]/g, 'c')
+        .replace(/[ğ]/g, 'g')
+        .replace(/[ö]/g, 'o')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+    
+    // Kategorileri fotoğraflarıyla birleştir
+    const categoriesWithImages = uniqueCategories.map(category => {
+      const normalizedCategory = normalizeCategoryName(category);
+      
+      // Fuzzy matching ile eşleştir
+      const imageData = imagesData?.find(img => {
+        const normalizedImgName = normalizeCategoryName(img.category_name);
+        return normalizedImgName === normalizedCategory;
+      });
+      
+      const result = {
+        category_name: category,
+        image_path: imageData?.image_path || null,
+        image_url: imageData?.image_url || null,
+        image_id: imageData?.id || null,
+        has_image: !!imageData
+      };
+      
+      console.log(`Kategori ${category} için:`, result);
+      console.log(`  Normalized: ${normalizedCategory}`);
+      if (imageData) {
+        console.log(`  Eşleşen: ${imageData.category_name} (${normalizeCategoryName(imageData.category_name)})`);
+      }
+      return result;
+    });
+    
+    console.log('Final sonuç:', categoriesWithImages);
+    
+    res.json({ 
+      categories: categoriesWithImages,
+      count: categoriesWithImages.length
+    });
+  } catch (error) {
+    console.error('Categories with Images API Error:', error);
+    res.status(500).json({ error: 'Kategoriler ve fotoğraflar servisi kullanılamıyor' });
+  }
+});
+
+// Tüm kategori fotoğraflarını getiren endpoint
+apiRouter.get('/category-images', async (req: Request, res: Response) => {
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('category_images')
+      .select('*')
+      .order('category_name');
+    
+    if (error) throw error;
+    
+    res.json({ 
+      categoryImages: data || [],
+      count: data?.length || 0
+    });
+  } catch (error) {
+    console.error('Category Images API Error:', error);
+    res.status(500).json({ error: 'Kategori fotoğrafları servisi kullanılamıyor' });
+  }
+});
+
+// Belirli bir kategorinin fotoğrafını getiren endpoint
+apiRouter.get('/category-images/:categoryName', async (req: Request, res: Response) => {
+  try {
+    const { categoryName } = req.params;
+    const supabase = getSupabase();
+    
+    const { data, error } = await supabase
+      .from('category_images')
+      .select('*')
+      .eq('category_name', categoryName)
+      .single();
+    
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({ error: 'Kategori fotoğrafı bulunamadı' });
+      }
+      throw error;
+    }
+    
+    res.json({ categoryImage: data });
+  } catch (error) {
+    console.error('Category Image API Error:', error);
+    res.status(500).json({ error: 'Kategori fotoğrafı servisi kullanılamıyor' });
+  }
+});
+
+// Supabase Storage URL'ini getiren endpoint
+apiRouter.get('/supabase-config', async (req: Request, res: Response) => {
+  try {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    if (!supabaseUrl) {
+      return res.status(500).json({ error: 'SUPABASE_URL not configured' });
+    }
+    
+    // Storage URL'ini oluştur
+    const storageUrl = `${supabaseUrl}/storage/v1/object/public/`;
+    
+    res.json({ 
+      supabaseUrl,
+      storageUrl,
+      bucket: 'categories'
+    });
+  } catch (error) {
+    console.error('Supabase Config API Error:', error);
+    res.status(500).json({ error: 'Supabase config service unavailable' });
+  }
+});
+
 

@@ -23,6 +23,9 @@ export class App {
   selectedCategory: string | null = null;
   categoryResults: any[] = [];
   
+  // Kategori fotoğrafları için yeni özellikler
+  categoriesWithImages: any[] = [];
+  
   // Brand logoları
   brandLogos: Record<string, string> = {};
   
@@ -34,6 +37,7 @@ export class App {
 
   constructor(private http: HttpClient, private chatService: ChatService) {
     this.loadCategories();
+    this.loadCategoriesWithImages(); // Yeni metod çağrısı
     this.loadBrandLogos();
   }
 
@@ -44,6 +48,38 @@ export class App {
       .subscribe((res) => {
         this.categories = res.categories || [];
       });
+  }
+  
+  // Kategorileri fotoğraflarıyla birlikte yükle
+  loadCategoriesWithImages() {
+    this.http
+      .get<{ categories: any[] }>('/api/categories-with-images')
+      .subscribe((res) => {
+        this.categoriesWithImages = res.categories || [];
+        console.log('Kategoriler fotoğraflarıyla yüklendi:', this.categoriesWithImages);
+        
+        // Her kategori için detaylı log
+        this.categoriesWithImages.forEach(category => {
+          console.log(`Kategori: ${category.category_name}`);
+          console.log(`  - image_path: ${category.image_path}`);
+          console.log(`  - image_url: ${category.image_url}`);
+          console.log(`  - has_image: ${category.has_image}`);
+        });
+      });
+  }
+  
+  // Resim yükleme hatası için
+  onImageError(event: any) {
+    console.log('Resim yüklenemedi:', event.target.src);
+    // Hata durumunda varsayılan ikonu göster
+    event.target.style.display = 'none';
+    const parent = event.target.parentElement;
+    if (parent) {
+      const fallbackIcon = parent.querySelector('.category-icon');
+      if (fallbackIcon) {
+        fallbackIcon.style.display = 'block';
+      }
+    }
   }
   
   // Brand logolarını yükle

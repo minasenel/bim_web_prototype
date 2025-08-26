@@ -261,11 +261,18 @@
     <section class="categories-section" style="margin-top: 32px;">
       <h3 style="margin-bottom: 20px; color: #333; font-size: 1.5rem;">Kategoriler</h3>
       <div class="categories-grid">
-        <div *ngFor="let category of categories" 
+        <div *ngFor="let categoryData of categoriesWithImages" 
              class="category-item"
-             (click)="searchByCategory(category)">
-          <div class="category-icon">🏷️</div>
-          <div class="category-name">{{ category }}</div>
+             (click)="searchByCategory(categoryData.category_name)">
+          <div class="category-image-container">
+            <img *ngIf="categoryData.image_url" 
+                 [src]="categoryData.image_url" 
+                 [alt]="categoryData.category_name + ' kategorisi'"
+                 class="category-image"
+                 (error)="onImageError($event)">
+            <div *ngIf="!categoryData.image_url" class="category-icon">🏷️</div>
+          </div>
+          <div class="category-name">{{ categoryData.category_name }}</div>
         </div>
       </div>
     </section>
