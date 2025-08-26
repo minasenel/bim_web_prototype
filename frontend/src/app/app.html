@@ -36,9 +36,7 @@
 
     --pill-accent: var(--bright-blue);
 
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-      Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
-      "Segoe UI Symbol";
+    font-family: "Roboto", system-ui, -apple-system, "Segoe UI", Arial, Helvetica, sans-serif;
     box-sizing: border-box;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -51,9 +49,7 @@
     line-height: 100%;
     letter-spacing: -0.125rem;
     margin: 0;
-    font-family: "Inter Tight", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-      Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
-      "Segoe UI Symbol";
+    font-family: "Roboto", system-ui, -apple-system, "Segoe UI", Arial, Helvetica, sans-serif;
   }
 
   p {
@@ -188,7 +184,7 @@
     <div class="left-content">
       <h1>BİM Ürün Bulucu (Prototip)</h1>
       <form (submit)="$event.preventDefault()" class="search-form">
-        <input placeholder="Ürün ara (örn: tencere)" #q />
+        <input placeholder="Ürün ara (örn: domates)" #q />
         <button (click)="search(q.value)">Ara</button>
       </form>
       <div class="locate-row">
@@ -265,9 +261,10 @@
       <!-- Kategoriler Bölümü -->
       <section class="categories-section">
         <h3>Kategoriler</h3>
-        <div class="categories-grid">
+        <div class="categories-grid" [class.active]="!!selectedCategory">
           <div *ngFor="let categoryData of categoriesWithImages" 
                class="category-item"
+               [class.active]="selectedCategory === categoryData.category_name"
                (click)="searchByCategory(categoryData.category_name)">
             <div class="category-image-container">
               <img *ngIf="categoryData.image_url" 
