@@ -23,6 +23,9 @@ export class App {
   selectedCategory: string | null = null;
   categoryResults: any[] = [];
   
+  // Brand logoları
+  brandLogos: Record<string, string> = {};
+  
   // Chatbot properties
   isChatOpen = false;
   chatMessages: any[] = [];
@@ -31,6 +34,7 @@ export class App {
 
   constructor(private http: HttpClient, private chatService: ChatService) {
     this.loadCategories();
+    this.loadBrandLogos();
   }
 
   // Kategorileri yükle
@@ -42,12 +46,35 @@ export class App {
       });
   }
   
+  // Brand logolarını yükle
+  loadBrandLogos() {
+    this.http
+      .get<{ brandLogos: Record<string, string> }>('/api/brandLogos')
+      .subscribe((res) => {
+        this.brandLogos = res.brandLogos || {};
+        console.log('Brand logoları yüklendi:', this.brandLogos);
+      });
+  }
+  
+  // Brand logosunu getir
+  getBrandLogo(brandName: string): string | null {
+    return this.brandLogos[brandName] || null;
+  }
+  
   search(q: string) {
     if (!q) return;
     this.http
       .get<{ items: any[] }>(`/api/searchProduct`, { params: { q } })
       .subscribe((res) => {
-        this.results = res.items || [];
+        const items = res.items || [];
+        // Arama sonuçlarını kategori kart görünümünde göstermek için bağla
+        this.selectedCategory = q;
+        this.categoryResults = items.map(item => ({
+          ...item,
+          brandLogo: this.getBrandLogo(item.brand)
+        }));
+        // Liste görünümünü kapatmak için temizle
+        this.results = [];
       });
   }
 
@@ -75,6 +102,10 @@ export class App {
       .get<{ items: any[]; count: number; category: string }>(`/api/productsByCategory`, { params: { category } })
       .subscribe((res) => {
         this.categoryResults = res.items || [];
+        // Her ürün için brand logosunu ekle
+        this.categoryResults.forEach(item => {
+          item.brandLogo = this.getBrandLogo(item.brand);
+        });
         this.results = []; // Ana arama sonuçlarını temizle
         console.log(`${category} kategorisinde ${res.count} ürün bulundu:`, res.items);
       });

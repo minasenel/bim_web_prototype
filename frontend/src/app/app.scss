@@ -162,10 +162,27 @@
     padding: 20px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     transition: all 0.3s ease;
+    position: relative;
     
     &:hover {
       transform: translateY(-2px);
       box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    }
+    
+    .brand-logo-container {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      
+      .brand-logo {
+        width: 90px;
+        height: 90px;
+        object-fit: contain;
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
     }
     
     .product-info {
@@ -180,6 +197,13 @@
       .product-brand {
         color: #666;
         font-size: 0.9rem;
+        margin: 4px 0;
+      }
+      
+      .brand-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
         margin: 4px 0;
       }
       
@@ -257,5 +281,35 @@
   .products-grid {
     grid-template-columns: 1fr !important;
     gap: 16px !important;
+  }
+}
+
+// Ana arama sonuçları için brand logo stilleri
+.brand-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+// Ana arama sonuçları için brand logo container
+ul li {
+  position: relative;
+  padding-right: 96px;
+  
+  .brand-logo-container {
+    position: absolute;
+    top: 0;
+    right: 0;
+    
+    .brand-logo {
+      width: 72px;
+      height: 72px;
+      object-fit: contain;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+      background: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
   }
 }

@@ -17,7 +17,6 @@ async function callAutomation(flowUrl: string, payload: unknown): Promise<unknow
 async function searchProductsDb(q: string) {
   const supabase = getSupabase();
   
-  // Hem ürün adında hem de marka adında arama yap
   const { data, error } = await supabase
     .from('brands3')
     .select('id, product_name, brand_name, category, stock(quantity)')
@@ -26,15 +25,62 @@ async function searchProductsDb(q: string) {
     
   if (error) throw error;
   
-  // Aggregate totalQuantity from related stock rows if present
-  const items = (data || []).map((p: any) => ({
-    id: p.id,
-    name: p.product_name,
-    brand: p.brand_name,
-    category: p.category,
-    totalQuantity: Array.isArray(p.stock) ? p.stock.reduce((a: number, s: any) => a + (s.quantity || 0), 0) : null,
-  }));
-  return items;
+  // Deduplicate by numeric id and also by composite key (name+brand)
+  const byId = new Map<number, { id: number; name: string; brand: string; category: string; totalQuantity: number | null }>();
+  const byComposite = new Set<string>();
+
+  (data || []).forEach((p: any) => {
+    const idNum = Number(p.id);
+    const name: string = p.product_name;
+    const brand: string = p.brand_name;
+    const category: string = p.category;
+    const compositeKey = `${(name || '').trim().toLowerCase()}__${(brand || '').trim().toLowerCase()}`;
+
+    const currentQuantity = Array.isArray(p.stock)
+      ? p.stock.reduce((a: number, s: any) => a + (s?.quantity ? Number(s.quantity) : 0), 0)
+      : 0;
+
+    if (Number.isFinite(idNum)) {
+      const existing = byId.get(idNum);
+      if (existing) {
+        const prev = existing.totalQuantity ?? 0;
+        existing.totalQuantity = prev + currentQuantity;
+      } else if (!byComposite.has(compositeKey)) {
+        byId.set(idNum, {
+          id: idNum,
+          name,
+          brand,
+          category,
+          totalQuantity: currentQuantity
+        });
+        byComposite.add(compositeKey);
+      }
+    } else {
+      // Fallback to composite dedup if id is not numeric
+      if (!byComposite.has(compositeKey)) {
+        byId.set(byId.size + 1, {
+          id: byId.size + 1,
+          name,
+          brand,
+          category,
+          totalQuantity: currentQuantity
+        });
+        byComposite.add(compositeKey);
+      } else {
+        // Aggregate quantity for composite duplicates
+        for (const [k, v] of byId.entries()) {
+          if (`${v.name.trim().toLowerCase()}__${v.brand.trim().toLowerCase()}` === compositeKey) {
+            const prev = v.totalQuantity ?? 0;
+            v.totalQuantity = prev + currentQuantity;
+            byId.set(k, v);
+            break;
+          }
+        }
+      }
+    }
+  });
+  
+  return Array.from(byId.values());
 }
 
 // ... existing code ...
@@ -576,21 +622,67 @@ apiRouter.get('/productsByCategory', async (req: Request, res: Response) => {
       .select('id, product_name, brand_name, category, stock(quantity)')
       .eq('category', category)
       .order('product_name')
-      .limit(100);
+      .limit(500);
     
     if (error) throw error;
     
-    // Stok bilgilerini topla
-    const items = (data || []).map((p: any) => ({
-      id: p.id,
-      name: p.product_name,
-      brand: p.brand_name,
-      category: p.category,
-      totalQuantity: Array.isArray(p.stock) ? p.stock.reduce((a: number, s: any) => a + (s.quantity || 0), 0) : null,
-    }));
+    // Deduplicate by numeric id and also by composite key (name+brand)
+    const byId = new Map<number, { id: number; name: string; brand: string; category: string; totalQuantity: number | null }>();
+    const byComposite = new Set<string>();
+
+    (data || []).forEach((p: any) => {
+      const idNum = Number(p.id);
+      const name: string = p.product_name;
+      const brand: string = p.brand_name;
+      const categoryName: string = p.category;
+      const compositeKey = `${(name || '').trim().toLowerCase()}__${(brand || '').trim().toLowerCase()}`;
+
+      const currentQuantity = Array.isArray(p.stock)
+        ? p.stock.reduce((a: number, s: any) => a + (s?.quantity ? Number(s.quantity) : 0), 0)
+        : 0;
+
+      if (Number.isFinite(idNum)) {
+        const existing = byId.get(idNum);
+        if (existing) {
+          const prev = existing.totalQuantity ?? 0;
+          existing.totalQuantity = prev + currentQuantity;
+        } else if (!byComposite.has(compositeKey)) {
+          byId.set(idNum, {
+            id: idNum,
+            name,
+            brand,
+            category: categoryName,
+            totalQuantity: currentQuantity
+          });
+          byComposite.add(compositeKey);
+        }
+      } else {
+        if (!byComposite.has(compositeKey)) {
+          byId.set(byId.size + 1, {
+            id: byId.size + 1,
+            name,
+            brand,
+            category: categoryName,
+            totalQuantity: currentQuantity
+          });
+          byComposite.add(compositeKey);
+        } else {
+          for (const [k, v] of byId.entries()) {
+            if (`${v.name.trim().toLowerCase()}__${v.brand.trim().toLowerCase()}` === compositeKey) {
+              const prev = v.totalQuantity ?? 0;
+              v.totalQuantity = prev + currentQuantity;
+              byId.set(k, v);
+              break;
+            }
+          }
+        }
+      }
+    });
+    
+    const items = Array.from(byId.values());
     
     res.json({ 
-      items: items,
+      items,
       category: category,
       count: items.length
     });
@@ -598,6 +690,33 @@ apiRouter.get('/productsByCategory', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Products by category API Error:', error);
     res.status(500).json({ error: 'Products service unavailable' });
+  }
+});
+
+// Brand logolarını getiren endpoint
+apiRouter.get('/brandLogos', async (req: Request, res: Response) => {
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('brands3')
+      .select('brand_name, image_url')
+      .not('image_url', 'is', null)
+      .order('brand_name');
+    
+    if (error) throw error;
+    
+    // Benzersiz brand_name'leri al ve image_url'leri map'le
+    const brandLogos: Record<string, string> = {};
+    data?.forEach(item => {
+      if (item.brand_name && item.image_url) {
+        brandLogos[item.brand_name] = item.image_url;
+      }
+    });
+    
+    res.json({ brandLogos });
+  } catch (error) {
+    console.error('Brand logos API Error:', error);
+    res.status(500).json({ error: 'Brand logos service unavailable' });
   }
 });
 
