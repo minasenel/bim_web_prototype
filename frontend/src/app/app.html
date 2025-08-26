@@ -194,18 +194,69 @@
       <span *ngIf="coords">Konum: {{ coords?.latitude | number:'1.4-4' }}, {{ coords?.longitude | number:'1.4-4' }}</span>
     </div>
 
+    <!-- Kategoriler Bölümü -->
+    <section class="categories-section" style="margin-top: 32px;">
+      <h3 style="margin-bottom: 20px; color: #333; font-size: 1.5rem;">Kategoriler</h3>
+      <div class="categories-grid">
+        <div *ngFor="let category of categories" 
+             class="category-item"
+             (click)="searchByCategory(category)">
+          <div class="category-icon">🏷️</div>
+          <div class="category-name">{{ category }}</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sonuçlar Bölümü -->
     <section style="margin-top: 24px;">
-      <h3>Sonuçlar</h3>
-      <div *ngIf="results?.length === 0">Sonuç bulunamadı.</div>
-      <ul>
-        <li *ngFor="let p of results" style="margin-bottom: 8px;">
-          <strong>{{ p.name }}</strong> <small>({{ p.brand }} — {{ p.category }})</small>
-          <div>
-            <button (click)="findNearest(p.id)">En yakın mağazayı bul</button>
-            <span *ngIf="nearest[p.id]"> → {{ nearest[p.id].name }} ({{ nearest[p.id].distanceKm | number: '1.1-1' }} km) Stok: {{ nearest[p.id].quantity }}</span>
+      <!-- Kategori Seçiliyse -->
+      <div *ngIf="selectedCategory" style="margin-bottom: 20px;">
+        <button (click)="clearCategory()" style="padding: 8px 16px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+          ← Tüm Kategorilere Dön
+        </button>
+        <h3 style="display: inline-block; margin-left: 16px; color: #333;">
+          {{ selectedCategory }} Kategorisi
+        </h3>
+      </div>
+      
+      <!-- Kategori Sonuçları -->
+      <div *ngIf="selectedCategory && categoryResults.length > 0">
+        <h3>{{ selectedCategory }} Ürünleri ({{ categoryResults.length }} ürün)</h3>
+        <div class="products-grid">
+          <div *ngFor="let p of categoryResults" class="product-card">
+            <div class="product-info">
+              <h4>{{ p.name }}</h4>
+              <p class="product-brand">{{ p.brand }}</p>
+              <p class="product-category">{{ p.category }}</p>
+            </div>
+            <div class="product-actions">
+              <button (click)="findNearest(p.id)" class="find-store-btn">
+                En yakın mağazayı bul
+              </button>
+              <div *ngIf="nearest[p.id]" class="store-info">
+                <span class="store-name">{{ nearest[p.id].name }}</span>
+                <span class="store-distance">{{ nearest[p.id].distanceKm | number: '1.1-1' }} km</span>
+                <span class="store-stock">Stok: {{ nearest[p.id].quantity }}</span>
+              </div>
+            </div>
           </div>
-        </li>
-      </ul>
+        </div>
+      </div>
+      
+      <!-- Ana Arama Sonuçları -->
+      <div *ngIf="!selectedCategory">
+        <h3>Sonuçlar</h3>
+        <div *ngIf="results?.length === 0">Sonuç bulunamadı.</div>
+        <ul>
+          <li *ngFor="let p of results" style="margin-bottom: 8px;">
+            <strong>{{ p.name }}</strong> <small>({{ p.brand }} — {{ p.category }})</small>
+            <div>
+              <button (click)="findNearest(p.id)">En yakın mağazayı bul</button>
+              <span *ngIf="nearest[p.id]"> → {{ nearest[p.id].name }} ({{ nearest[p.id].distanceKm | number: '1.1-1' }} km) Stok: {{ nearest[p.id].quantity }}</span>
+            </div>
+          </li>
+        </ul>
+      </div>
     </section>
   </div>
 </main>

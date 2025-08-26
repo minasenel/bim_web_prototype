@@ -540,6 +540,67 @@ apiRouter.post('/mcp/execute', async (req: Request, res: Response) => {
   }
 });
 
+// Kategorileri getiren endpoint
+apiRouter.get('/categories', async (req: Request, res: Response) => {
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('brands3')
+      .select('category')
+      .order('category');
+    
+    if (error) throw error;
+    
+    // Benzersiz kategorileri al
+    const uniqueCategories = [...new Set(data?.map(item => item.category) || [])];
+    
+    res.json({ categories: uniqueCategories });
+  } catch (error) {
+    console.error('Categories API Error:', error);
+    res.status(500).json({ error: 'Categories service unavailable' });
+  }
+});
+
+// Kategori bazlı ürün getiren endpoint
+apiRouter.get('/productsByCategory', async (req: Request, res: Response) => {
+  try {
+    const { category } = req.query;
+    
+    if (!category) {
+      return res.status(400).json({ error: 'Category parameter is required' });
+    }
+    
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('brands3')
+      .select('id, product_name, brand_name, category, stock(quantity)')
+      .eq('category', category)
+      .order('product_name')
+      .limit(100);
+    
+    if (error) throw error;
+    
+    // Stok bilgilerini topla
+    const items = (data || []).map((p: any) => ({
+      id: p.id,
+      name: p.product_name,
+      brand: p.brand_name,
+      category: p.category,
+      totalQuantity: Array.isArray(p.stock) ? p.stock.reduce((a: number, s: any) => a + (s.quantity || 0), 0) : null,
+    }));
+    
+    res.json({ 
+      items: items,
+      category: category,
+      count: items.length
+    });
+    
+  } catch (error) {
+    console.error('Products by category API Error:', error);
+    res.status(500).json({ error: 'Products service unavailable' });
+  }
+});
+
 // Chat endpoint - forwards to n8n workflow
 apiRouter.post('/chat', async (req: Request, res: Response) => {
   try {

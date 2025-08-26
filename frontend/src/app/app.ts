@@ -18,14 +18,30 @@ export class App {
   coords: GeolocationCoordinates | null = null;
   nearest: Record<number, any> = {};
   
+  // Kategori özellikleri
+  categories: string[] = [];
+  selectedCategory: string | null = null;
+  categoryResults: any[] = [];
+  
   // Chatbot properties
   isChatOpen = false;
   chatMessages: any[] = [];
   userMessage = '';
   private readonly sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
 
-  constructor(private http: HttpClient, private chatService: ChatService) {}
+  constructor(private http: HttpClient, private chatService: ChatService) {
+    this.loadCategories();
+  }
 
+  // Kategorileri yükle
+  loadCategories() {
+    this.http
+      .get<{ categories: string[] }>('/api/categories')
+      .subscribe((res) => {
+        this.categories = res.categories || [];
+      });
+  }
+  
   search(q: string) {
     if (!q) return;
     this.http
@@ -50,6 +66,25 @@ export class App {
       .subscribe((res) => {
         this.nearest[productId] = res.items?.[0];
       });
+  }
+  
+  // Kategori arama fonksiyonu
+  searchByCategory(category: string) {
+    this.selectedCategory = category;
+    this.http
+      .get<{ items: any[]; count: number; category: string }>(`/api/productsByCategory`, { params: { category } })
+      .subscribe((res) => {
+        this.categoryResults = res.items || [];
+        this.results = []; // Ana arama sonuçlarını temizle
+        console.log(`${category} kategorisinde ${res.count} ürün bulundu:`, res.items);
+      });
+  }
+  
+  // Ana aramaya geri dön
+  clearCategory() {
+    this.selectedCategory = null;
+    this.categoryResults = [];
+    this.results = [];
   }
 
   // Chatbot methods
