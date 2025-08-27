@@ -16,30 +16,45 @@ export default async function handler(req: any, res: any) {
 
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const { data, error } = await supabase
+    // Get categories from brands3 and their images from category_images
+    const { data: categoriesData, error: categoriesError } = await supabase
       .from('brands3')
-      .select('category, image_url');
+      .select('category');
 
-    if (error != null) {
-      console.error('Supabase categories-with-images error:', error);
-      const message = (error as any)?.message ?? 'Unknown error';
+    if (categoriesError) {
+      console.error('Supabase categories error:', categoriesError);
+      const message = (categoriesError as any)?.message ?? 'Unknown error';
       return res.status(500).json({ error: message });
     }
 
-    const map = new Map<string, { category_name: string; image_url: string | null; has_image: boolean }>();
-    (data || []).forEach((row: any) => {
-      const category = row.category as string;
-      const imageUrl = (row.image_url as string) || null;
-      if (!category) return;
-      if (!map.has(category)) {
-        map.set(category, { category_name: category, image_url: imageUrl, has_image: !!imageUrl });
-      } else if (!map.get(category)!.image_url && imageUrl) {
-        map.get(category)!.image_url = imageUrl;
-        map.get(category)!.has_image = true;
-      }
+    // Get unique categories
+    const uniqueCategories = Array.from(new Set((categoriesData || []).map((r: any) => r.category).filter(Boolean)));
+
+    // Get images for these categories from category_images table
+    const { data: imagesData, error: imagesError } = await supabase
+      .from('category_images')
+      .select('category_name, image_url')
+      .in('category_name', uniqueCategories);
+
+    if (imagesError) {
+      console.error('Supabase category images error:', imagesError);
+      const message = (imagesError as any)?.message ?? 'Unknown error';
+      return res.status(500).json({ error: message });
+    }
+
+    // Create a map of category images
+    const imageMap = new Map<string, string>();
+    (imagesData || []).forEach((img: any) => {
+      imageMap.set(img.category_name, img.image_url);
     });
 
-    const categories = Array.from(map.values());
+    // Build final categories array with correct images
+    const categories = uniqueCategories.map(category => ({
+      category_name: category,
+      image_url: imageMap.get(category) || null,
+      has_image: !!imageMap.get(category)
+    }));
+
     return res.status(200).json({ categories });
   } catch (e: any) {
     console.error('Categories-with-images function crash:', e);
