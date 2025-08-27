@@ -27,9 +27,10 @@ export default async function handler(req: any, res: any) {
       .from('brands3')
       .select('category, image_url');
 
-    if (error) {
+    if (error != null) {
       console.error('Supabase categories-with-images error:', error);
-      return res.status(500).json({ error: error.message });
+      const message = (error as any)?.message ?? 'Unknown error';
+      return res.status(500).json({ error: message });
     }
 
     const map = new Map<string, { category_name: string; image_url: string | null; has_image: boolean }>();

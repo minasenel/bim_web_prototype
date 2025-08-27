@@ -27,9 +27,10 @@ export default async function handler(req: any, res: any) {
       .from('brands3')
       .select('category');
 
-    if (error) {
+    if (error != null) {
       console.error('Supabase categories error:', error);
-      return res.status(500).json({ error: error.message });
+      const message = (error as any)?.message ?? 'Unknown error';
+      return res.status(500).json({ error: message });
     }
 
     const categories = Array.from(new Set((data || []).map((r: any) => r.category).filter(Boolean)));
