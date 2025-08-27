@@ -7,6 +7,13 @@ const n8nWebhookUrl = process.env['N8N_WEBHOOK_URL'] as string | undefined;
 const googleApiKey = process.env['GOOGLE_API_KEY'] as string | undefined;
 
 export default async function handler(req: any, res: any) {
+  // TEMP: debug env visibility on Vercel
+  return res.status(200).json({
+    ok: true,
+    hasUrl: !!process.env['SUPABASE_URL'],
+    hasKey: !!(process.env['SUPABASE_SERVICE_KEY'] || process.env['SUPABASE_ANON_KEY'])
+  });
+
   res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
 
   if (!supabaseUrl || !supabaseKey) {
