@@ -16,46 +16,71 @@ export default async function handler(req: any, res: any) {
 
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
-    // Get categories from brands3 and their images from category_images
+    
+    // Get categories from brands3 table
     const { data: categoriesData, error: categoriesError } = await supabase
       .from('brands3')
-      .select('category');
-
+      .select('category')
+      .order('category');
+    
     if (categoriesError) {
       console.error('Supabase categories error:', categoriesError);
       const message = (categoriesError as any)?.message ?? 'Unknown error';
       return res.status(500).json({ error: message });
     }
-
+    
     // Get unique categories
-    const uniqueCategories = Array.from(new Set((categoriesData || []).map((r: any) => r.category).filter(Boolean)));
-
-    // Get images for these categories from category_images table
+    const uniqueCategories = [...new Set(categoriesData?.map(item => item.category) || [])];
+    
+    // Get category images from category_images table
     const { data: imagesData, error: imagesError } = await supabase
       .from('category_images')
-      .select('category_name, image_url')
-      .in('category_name', uniqueCategories);
-
+      .select('*');
+    
     if (imagesError) {
       console.error('Supabase category images error:', imagesError);
       const message = (imagesError as any)?.message ?? 'Unknown error';
       return res.status(500).json({ error: message });
     }
-
-    // Create a map of category images
-    const imageMap = new Map<string, string>();
-    (imagesData || []).forEach((img: any) => {
-      imageMap.set(img.category_name, img.image_url);
+    
+    // Normalize category names for matching (same logic as backend)
+    function normalizeCategoryName(name: string): string {
+      return name
+        .toLowerCase()
+        .replace(/[&]/g, 've')
+        .replace(/[ü]/g, 'u')
+        .replace(/[ı]/g, 'i')
+        .replace(/[ş]/g, 's')
+        .replace(/[ç]/g, 'c')
+        .replace(/[ğ]/g, 'g')
+        .replace(/[ö]/g, 'o')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+    
+    // Match categories with images using normalization
+    const categoriesWithImages = uniqueCategories.map(category => {
+      const normalizedCategory = normalizeCategoryName(category);
+      
+      // Find matching image data
+      const imageData = imagesData?.find(img => {
+        const normalizedImgName = normalizeCategoryName(img.category_name);
+        return normalizedImgName === normalizedCategory;
+      });
+      
+      return {
+        category_name: category,
+        image_path: imageData?.image_path || null,
+        image_url: imageData?.image_url || null,
+        image_id: imageData?.id || null,
+        has_image: !!imageData
+      };
     });
-
-    // Build final categories array with correct images
-    const categories = uniqueCategories.map(category => ({
-      category_name: category,
-      image_url: imageMap.get(category) || null,
-      has_image: !!imageMap.get(category)
-    }));
-
-    return res.status(200).json({ categories });
+    
+    return res.status(200).json({ 
+      categories: categoriesWithImages,
+      count: categoriesWithImages.length
+    });
   } catch (e: any) {
     console.error('Categories-with-images function crash:', e);
     return res.status(500).json({ error: e?.message || 'Unknown error' });

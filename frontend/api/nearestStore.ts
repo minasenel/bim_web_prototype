@@ -18,56 +18,48 @@ export default async function handler(req: any, res: any) {
 
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
-    
-    const { data, error } = await supabase
-      .from('stock')
-      .select(`
-        quantity,
-        store_id,
-        stores!inner(
-          id,
-          name,
-          latitude,
-          longitude
-        )
-      `)
-      .eq('product_id', productId)
-      .gt('quantity', 0);
 
-    if (error) {
-      console.error('Supabase nearest store error:', error);
-      const message = (error as any)?.message ?? 'Unknown error';
+    // Fetch all stores
+    const { data: stores, error: storesErr } = await supabase
+      .from('stores')
+      .select('id, name, latitude, longitude, address');
+    if (storesErr) {
+      const message = (storesErr as any)?.message ?? 'Unknown error';
       return res.status(500).json({ error: message });
     }
 
-    const storesWithDistance = (data || []).map((item: any) => {
-      // Normalize stores join shape (object or single-element array)
-      let store: any = item?.stores;
-      if (Array.isArray(store)) {
-        store = store[0];
+    // For each store, get stock for the given product (brands3_id)
+    const results: any[] = [];
+    for (const s of stores || []) {
+      const { data: stk, error: stErr } = await supabase
+        .from('stock')
+        .select('quantity')
+        .eq('brands3_id', Number(productId))
+        .eq('store_id', s.id)
+        .maybeSingle();
+      if (stErr) {
+        console.warn('Stock query error for store', s.id, stErr);
       }
-      if (!store) {
-        return null;
+      const quantity = stk?.quantity ?? 0;
+      if (quantity > 0) {
+        results.push({
+          id: s.id,
+          name: s.name,
+          quantity,
+          latitude: Number(s.latitude),
+          longitude: Number(s.longitude),
+          distanceKm: calculateDistance(
+            parseFloat(lat as string),
+            parseFloat(lng as string),
+            Number(s.latitude),
+            Number(s.longitude)
+          )
+        });
       }
+    }
 
-      const distance = calculateDistance(
-        parseFloat(lat as string), 
-        parseFloat(lng as string), 
-        Number(store.latitude), 
-        Number(store.longitude)
-      );
-      
-      return {
-        id: store.id,
-        name: store.name,
-        quantity: item.quantity,
-        distanceKm: distance,
-        latitude: Number(store.latitude),
-        longitude: Number(store.longitude)
-      };
-    }).filter(Boolean).sort((a: any, b: any) => a.distanceKm - b.distanceKm);
-
-    return res.status(200).json({ items: storesWithDistance });
+    results.sort((a, b) => a.distanceKm - b.distanceKm);
+    return res.status(200).json({ items: results.slice(0, 10) });
   } catch (e: any) {
     console.error('Nearest store function crash:', e);
     return res.status(500).json({ error: e?.message || 'Unknown error' });
