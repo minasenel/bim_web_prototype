@@ -34,6 +34,8 @@ export class App {
   chatMessages: any[] = [];
   userMessage = '';
   private readonly sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+  private liveSearchTimer: any;
+  lastQuery: string = '';
 
   constructor(private http: HttpClient, private chatService: ChatService) {
     this.loadCategories();
@@ -98,13 +100,14 @@ export class App {
   }
   
   search(q: string) {
-    if (!q) return;
+    this.lastQuery = (q || '').trim();
+    if (!this.lastQuery) return;
     this.http
-      .get<{ items: any[] }>(`/api/searchProduct`, { params: { q } })
+      .get<{ items: any[] }>(`/api/searchProduct`, { params: { q: this.lastQuery } })
       .subscribe((res) => {
         const items = res.items || [];
         // Arama sonuçlarını kategori kart görünümünde göstermek için bağla
-        this.selectedCategory = q;
+        this.selectedCategory = this.lastQuery;
         this.categoryResults = items.map(item => ({
           ...item,
           brandLogo: this.getBrandLogo(item.brand)
@@ -217,5 +220,30 @@ export class App {
         (container as HTMLElement).scrollTop = (container as HTMLElement).scrollHeight;
       }
     }, 100);
+  }
+  
+  // Quick suggestion message handler
+  sendQuickMessage(message: string) {
+    this.userMessage = message;
+    this.sendMessage();
+  }
+
+  onLiveSearch(value: string) {
+    if (this.liveSearchTimer) {
+      clearTimeout(this.liveSearchTimer);
+    }
+    this.liveSearchTimer = setTimeout(() => {
+      const q = (value || '').trim();
+      this.lastQuery = q;
+      if (q.length === 0) {
+        // Clear results and keep the default state
+        this.selectedCategory = null;
+        this.categoryResults = [];
+        this.results = [];
+        return;
+      }
+      // Use existing search() which renders with card layout via categoryResults
+      this.search(q);
+    }, 300);
   }
 }

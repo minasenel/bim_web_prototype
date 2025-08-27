@@ -182,14 +182,37 @@
   <div class="page-layout">
     <!-- Left: Search + Results -->
     <div class="left-content">
-      <h1>BİM Ürün Bulucu (Prototip)</h1>
-      <form (submit)="$event.preventDefault()" class="search-form">
-        <input placeholder="Ürün ara (örn: domates)" #q />
-        <button (click)="search(q.value)">Ara</button>
-      </form>
-      <div class="locate-row">
-        <button (click)="locate()">Konumumu Kullan</button>
-        <span *ngIf="coords">Konum: {{ coords?.latitude | number:'1.4-4' }}, {{ coords?.longitude | number:'1.4-4' }}</span>
+      <h1><img src="https://cdn2.bim.com.tr/templates/images/bim-logo-single.png" alt="BİM" loading="lazy"> BİM Ürün Bulucu</h1>
+      <div class="search-container">
+        <div class="search-form">
+          <div class="flex flex-col md:flex-row gap-3">
+            <div class="relative flex-1">
+              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="m21 21-4.35-4.35"></path>
+              </svg>
+              <input #q type="text" inputmode="search" placeholder="Ürün veya marka ara (örn. domates)" (input)="onLiveSearch(q.value)" />
+            </div>
+            <button (click)="search(q.value)" class="search-btn">
+              <svg class="search-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
+              </svg>
+              <span>Ara</span>
+            </button>
+            <button (click)="locate()" class="locate-btn">
+              <svg class="locate-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"></path>
+                <circle cx="12" cy="9" r="2.5"></circle>
+              </svg>
+              <span>Konumumu Kullan</span>
+            </button>
+          </div>
+          <div class="loc-status">
+            <div class="status-dot"></div>
+            <span *ngIf="!coords">Konum hazır değil</span>
+            <span *ngIf="coords">Konumunuz algılandı</span>
+          </div>
+        </div>
       </div>
 
       <!-- Sonuçlar Bölümü (Arama çubuğunun hemen altında) -->
@@ -199,9 +222,6 @@
           <button (click)="clearCategory()" class="back-btn">
             ← Tüm Kategorilere Dön
           </button>
-          <h3>
-            {{ selectedCategory }} Kategorisi
-          </h3>
         </div>
         
         <!-- Kategori Sonuçları -->
@@ -236,7 +256,8 @@
         <!-- Ana Arama Sonuçları -->
         <div *ngIf="!selectedCategory">
           <h3>Sonuçlar</h3>
-          <div *ngIf="results?.length === 0">Sonuç bulunamadı.</div>
+          <div *ngIf="(lastQuery || '').length === 0 && results?.length === 0">Ürün aramayı deneyin</div>
+          <div *ngIf="(lastQuery || '').length > 0 && results?.length === 0">Sonuç bulunamadı.</div>
           <ul class="list-results">
             <li *ngFor="let p of results">
               <strong>{{ p.name }}</strong> 
@@ -253,6 +274,27 @@
             </li>
           </ul>
         </div>
+
+        <!-- Horizontal Categories under results when no query -->
+        <section *ngIf="(lastQuery || '').length === 0 && !selectedCategory" class="categories-section horizontal">
+          <h3>Kategoriler</h3>
+          <div class="categories-grid-horizontal">
+            <div *ngFor="let categoryData of categoriesWithImages" 
+                 class="category-item"
+                 [class.active]="selectedCategory === categoryData.category_name"
+                 (click)="searchByCategory(categoryData.category_name)">
+              <div class="category-image-container">
+                <img *ngIf="categoryData.image_url" 
+                     [src]="categoryData.image_url" 
+                     [alt]="categoryData.category_name + ' kategorisi'"
+                     class="category-image"
+                     (error)="onImageError($event)">
+                <div *ngIf="!categoryData.image_url" class="category-icon">🏷️</div>
+              </div>
+              <div class="category-name">{{ categoryData.category_name }}</div>
+            </div>
+          </div>
+        </section>
       </section>
     </div>
 
@@ -261,8 +303,14 @@
       <!-- Chatbot Widget - Kategorilerin üstünde -->
       <div class="chatbot-widget">
         <div class="chat-header" (click)="toggleChat()">
-          <span>🍳 Yemek Tarifi Asistanı</span>
-          <button>{{ isChatOpen ? '✕' : '💬' }}</button>
+          <div class="chat-header-left">
+            <div class="chat-header-icon">🍳</div>
+            <div class="chat-title-wrap">
+              <span class="chat-title">Yemek Tarifi Asistanı</span>
+              <span class="chat-subtitle">Türkçe destekli tarif önerileri</span>
+            </div>
+          </div>
+          <span class="chat-ai-badge">AI</span>
         </div>
         
         <div class="chat-body" *ngIf="isChatOpen">
@@ -276,18 +324,24 @@
           </div>
           
           <div class="chat-input">
-            <input [(ngModel)]="userMessage" 
-                   placeholder="Sor... (örn: Mercimek çorbası nasıl yapılır?)"
-                   (keyup.enter)="sendMessage()" />
-            <button (click)="sendMessage()" [disabled]="!userMessage.trim()">
-              Gönder
-            </button>
+            <div class="input-relative">
+              <span class="input-icon">💬</span>
+              <input [(ngModel)]="userMessage" 
+                     placeholder="Örn: Tavukla pratik akşam yemeği öner"
+                     (keyup.enter)="sendMessage()" />
+              <button class="send-btn" (click)="sendMessage()" [disabled]="!userMessage.trim()">➤</button>
+            </div>
+            <div class="quick-suggestions">
+              <button class="quick-suggestion" (click)="sendQuickMessage('Makarna sosu fikri')">Makarna sosu fikri</button>
+              <button class="quick-suggestion" (click)="sendQuickMessage('Kahvaltı önerisi')">Kahvaltı önerisi</button>
+              <button class="quick-suggestion" (click)="sendQuickMessage('Et yerine alternatif')">Et yerine alternatif</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Kategoriler Bölümü -->
-      <section class="categories-section">
+      <!-- Kategoriler Bölümü (sidebar) -->
+      <section class="categories-section" *ngIf="(lastQuery || '').length > 0 || selectedCategory">
         <h3>Kategoriler</h3>
         <div class="categories-grid" [class.active]="!!selectedCategory">
           <div *ngFor="let categoryData of categoriesWithImages" 
