@@ -1,10 +1,9 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL as string;
-const supabaseKey = process.env.SUPABASE_ANON_KEY as string;
+const supabaseUrl = process.env['SUPABASE_URL'] as string;
+const supabaseKey = process.env['SUPABASE_ANON_KEY'] as string;
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: any, res: any) {
   res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
 
   if (!supabaseUrl || !supabaseKey) {
