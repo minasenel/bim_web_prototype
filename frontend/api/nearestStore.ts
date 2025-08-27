@@ -19,7 +19,6 @@ export default async function handler(req: any, res: any) {
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Get stores with stock for this product
     const { data, error } = await supabase
       .from('stock')
       .select(`
@@ -41,14 +40,21 @@ export default async function handler(req: any, res: any) {
       return res.status(500).json({ error: message });
     }
 
-    // Calculate distances and sort by nearest
-    const storesWithDistance = (data || []).map(item => {
-      const store = item.stores;
+    const storesWithDistance = (data || []).map((item: any) => {
+      // Normalize stores join shape (object or single-element array)
+      let store: any = item?.stores;
+      if (Array.isArray(store)) {
+        store = store[0];
+      }
+      if (!store) {
+        return null;
+      }
+
       const distance = calculateDistance(
-        parseFloat(lat), 
-        parseFloat(lng), 
-        store.latitude, 
-        store.longitude
+        parseFloat(lat as string), 
+        parseFloat(lng as string), 
+        Number(store.latitude), 
+        Number(store.longitude)
       );
       
       return {
@@ -56,10 +62,10 @@ export default async function handler(req: any, res: any) {
         name: store.name,
         quantity: item.quantity,
         distanceKm: distance,
-        latitude: store.latitude,
-        longitude: store.longitude
+        latitude: Number(store.latitude),
+        longitude: Number(store.longitude)
       };
-    }).sort((a, b) => a.distanceKm - b.distanceKm);
+    }).filter(Boolean).sort((a: any, b: any) => a.distanceKm - b.distanceKm);
 
     return res.status(200).json({ items: storesWithDistance });
   } catch (e: any) {
@@ -68,9 +74,8 @@ export default async function handler(req: any, res: any) {
   }
 }
 
-// Haversine formula to calculate distance between two points
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // Earth's radius in kilometers
+  const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a = 
