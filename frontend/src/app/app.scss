@@ -424,8 +424,10 @@
     }
 
     // Firefox
-    scrollbar-width: auto;
-    scrollbar-color: #a6a6a6 #eaeaea;
+    & {
+      scrollbar-width: auto;
+      scrollbar-color: #a6a6a6 #eaeaea;
+    }
   }
   
   .categories-grid.active {
