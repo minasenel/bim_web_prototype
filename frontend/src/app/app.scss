@@ -1,21 +1,44 @@
 // Chatbot widget styles
 .chatbot-widget {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    width: 360px; // narrower so it won't cover grids
+    /* Sidebar içinde daha zarif görünüm */
+    width: 100%;
+    margin-bottom: 20px;
     --bim-red: #E31E24;
     background: white;
-    border-radius: 10px;
+    border-radius: 12px;
     box-shadow: 0 8px 30px rgba(0,0,0,0.12);
     z-index: 1000;
     font-family: 'Roboto', system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+    
+    /* Sidebar içinde daha kompakt */
+    .chat-header {
+      padding: 12px 14px;
+      font-size: 0.9rem;
+    }
+    
+    .chat-body {
+      height: 400px; /* Sidebar için daha uygun yükseklik */
+    }
+    
+    .chat-input {
+      padding: 10px 12px;
+    }
+    
+    .chat-input input {
+      font-size: 0.85rem;
+      padding: 8px 10px;
+    }
+    
+    .chat-input button {
+      padding: 8px 12px;
+      font-size: 0.85rem;
+    }
     
     .chat-header {
       background: var(--bim-red);
       color: #fff;
       padding: 14px 16px;
-      border-radius: 10px 10px 0 0;
+      border-radius: 12px 12px 0 0;
       cursor: pointer;
       display: flex;
       justify-content: space-between;
@@ -118,13 +141,48 @@
     margin: 0 0 8px 0;
   }
   .categories-grid {
-    max-height: 60vh; // own scroll area (shorter to encourage overflow)
-    overflow-y: scroll; // always show vertical scrollbar
+    max-height: 60vh; // own scroll area
+    overflow-y: auto;
     overflow-x: hidden;
-    scrollbar-gutter: stable both-edges; // reserve space for scrollbar
-    padding-right: 6px; // room for scrollbar
+    padding-right: 6px;
     border-radius: 12px;
     transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    
+    /* Grid layout */
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-top: 20px;
+    
+    /* Scroll indicator animation */
+    position: relative;
+    
+    /* Scroll indicator - sağ tarafta yukarı-aşağı hareket eden nokta */
+    &::after {
+      content: '';
+      position: absolute;
+      right: 8px;
+      top: 20px;
+      width: 4px;
+      height: 20px;
+      background: #E31E24;
+      border-radius: 2px;
+      animation: scrollIndicator 6s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 10;
+    }
+    
+    /* Scroll indicator animasyonu */
+    @keyframes scrollIndicator {
+      0%, 100% {
+        top: 20px;
+        opacity: 0.9;
+      }
+      50% {
+        top: calc(100% - 30px);
+        opacity: 0.4;
+      }
+    }
 
     // WebKit browsers
     &::-webkit-scrollbar {
@@ -132,11 +190,11 @@
       height: 12px;
     }
     &::-webkit-scrollbar-track {
-      background: #eaeaea; // slightly darker to be noticeable
+      background: #eaeaea;
       border-radius: 10px;
     }
     &::-webkit-scrollbar-thumb {
-      background: #a6a6a6; // darker thumb for visibility
+      background: #a6a6a6;
       border-radius: 10px;
       border: 2px solid #eaeaea;
     }
@@ -145,7 +203,7 @@
     }
 
     // Firefox
-    scrollbar-width: auto; // thicker
+    scrollbar-width: auto;
     scrollbar-color: #a6a6a6 #eaeaea;
   }
   .categories-grid.active {
@@ -154,79 +212,69 @@
   
   .category-item {
     border: 2px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 16px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+    background: white;
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      border-color: #007bff;
+    }
+    
+    .category-icon {
+      font-size: 2.5rem;
+      margin-bottom: 12px;
+    }
+    
+    // Kategori fotoğrafları için yeni stiller
+    .category-image-container {
+      width: 100%;
+      height: 120px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #f8f9fa;
+      position: relative;
+      
+      .category-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 8px;
+        transition: transform 0.3s ease;
+      }
+      
+      .category-icon {
+        font-size: 3rem;
+        color: #6c757d;
+        display: none; // Varsayılan olarak gizli
+      }
+    }
+    
+    &:hover .category-image-container .category-image {
+      transform: scale(1.05);
+    }
+    
+    .category-name {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #333;
+      line-height: 1.2;
+    }
   }
   .category-item.active {
     border-color: #E31E24;
     box-shadow: 0 0 0 4px rgba(227, 30, 36, 0.25), 0 6px 18px rgba(0,0,0,0.12);
-  }
-  .categories-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 16px;
-    margin-top: 20px;
-    
-    .category-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px 16px;
-      border: 2px solid #e0e0e0;
-      border-radius: 12px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      text-align: center;
-      background: white;
-      
-      &:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        border-color: #007bff;
-      }
-      
-      .category-icon {
-        font-size: 2.5rem;
-        margin-bottom: 12px;
-      }
-      
-      // Kategori fotoğrafları için yeni stiller
-      .category-image-container {
-        width: 100%;
-        height: 120px;
-        margin-bottom: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-        border-radius: 8px;
-        background: #f8f9fa;
-        position: relative;
-        
-        .category-image {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          border-radius: 8px;
-          transition: transform 0.3s ease;
-        }
-        
-        .category-icon {
-          font-size: 3rem;
-          color: #6c757d;
-          display: none; // Varsayılan olarak gizli
-        }
-      }
-      
-      &:hover .category-image-container .category-image {
-        transform: scale(1.05);
-      }
-      
-      .category-name {
-        font-size: 0.9rem;
-        font-weight: 500;
-        color: #333;
-        line-height: 1.2;
-      }
-    }
   }
 }
 
@@ -353,12 +401,6 @@
   .products-grid {
     grid-template-columns: 1fr !important;
   }
-  .chatbot-widget {
-    right: 12px;
-    left: 12px;
-    width: auto;
-    max-width: none;
-  }
 }
 
 @media (max-width: 768px) {
@@ -384,15 +426,15 @@
     gap: 16px !important;
   }
   
-  // Adjust chat widget for small screens
-  .chatbot-widget {
-    right: 10px;
-    left: 10px;
-    bottom: 12px;
-    width: calc(100vw - 20px);
-    
+  /* Sidebar içindeki chatbot için responsive ayarlar */
+  .right-sidebar .chatbot-widget {
     .chat-body {
-      height: 60vh;
+      height: 350px;
+    }
+    
+    .chat-header {
+      padding: 10px 12px;
+      font-size: 0.85rem;
     }
   }
 }

@@ -19,14 +19,14 @@ async function searchProductsDb(q: string) {
   
   const { data, error } = await supabase
     .from('brands3')
-    .select('id, product_name, brand_name, category, stock(quantity)')
+    .select('id, product_name, brand_name, category, image_url, stock(quantity)')
     .or(`product_name.ilike.%${q}%,brand_name.ilike.%${q}%`)
     .limit(50);
     
   if (error) throw error;
   
   // Deduplicate by numeric id and also by composite key (name+brand)
-  const byId = new Map<number, { id: number; name: string; brand: string; category: string; totalQuantity: number | null }>();
+  const byId = new Map<number, { id: number; name: string; brand: string; category: string; totalQuantity: number | null; brandLogo: string | null }>();
   const byComposite = new Set<string>();
 
   (data || []).forEach((p: any) => {
@@ -34,6 +34,7 @@ async function searchProductsDb(q: string) {
     const name: string = p.product_name;
     const brand: string = p.brand_name;
     const category: string = p.category;
+    const imageUrl: string | null = p.image_url;
     const compositeKey = `${(name || '').trim().toLowerCase()}__${(brand || '').trim().toLowerCase()}`;
 
     const currentQuantity = Array.isArray(p.stock)
@@ -51,7 +52,8 @@ async function searchProductsDb(q: string) {
           name,
           brand,
           category,
-          totalQuantity: currentQuantity
+          totalQuantity: currentQuantity,
+          brandLogo: imageUrl
         });
         byComposite.add(compositeKey);
       }
@@ -63,7 +65,8 @@ async function searchProductsDb(q: string) {
           name,
           brand,
           category,
-          totalQuantity: currentQuantity
+          totalQuantity: currentQuantity,
+          brandLogo: imageUrl
         });
         byComposite.add(compositeKey);
       } else {
@@ -619,7 +622,7 @@ apiRouter.get('/productsByCategory', async (req: Request, res: Response) => {
     const supabase = getSupabase();
     const { data, error } = await supabase
       .from('brands3')
-      .select('id, product_name, brand_name, category, stock(quantity)')
+      .select('id, product_name, brand_name, category, image_url, stock(quantity)')
       .eq('category', category)
       .order('product_name')
       .limit(500);
@@ -627,7 +630,7 @@ apiRouter.get('/productsByCategory', async (req: Request, res: Response) => {
     if (error) throw error;
     
     // Deduplicate by numeric id and also by composite key (name+brand)
-    const byId = new Map<number, { id: number; name: string; brand: string; category: string; totalQuantity: number | null }>();
+    const byId = new Map<number, { id: number; name: string; brand: string; category: string; totalQuantity: number | null; brandLogo: string | null }>();
     const byComposite = new Set<string>();
 
     (data || []).forEach((p: any) => {
@@ -635,6 +638,7 @@ apiRouter.get('/productsByCategory', async (req: Request, res: Response) => {
       const name: string = p.product_name;
       const brand: string = p.brand_name;
       const categoryName: string = p.category;
+      const imageUrl: string | null = p.image_url;
       const compositeKey = `${(name || '').trim().toLowerCase()}__${(brand || '').trim().toLowerCase()}`;
 
       const currentQuantity = Array.isArray(p.stock)
@@ -652,7 +656,8 @@ apiRouter.get('/productsByCategory', async (req: Request, res: Response) => {
             name,
             brand,
             category: categoryName,
-            totalQuantity: currentQuantity
+            totalQuantity: currentQuantity,
+            brandLogo: imageUrl
           });
           byComposite.add(compositeKey);
         }
@@ -663,7 +668,8 @@ apiRouter.get('/productsByCategory', async (req: Request, res: Response) => {
             name,
             brand,
             category: categoryName,
-            totalQuantity: currentQuantity
+            totalQuantity: currentQuantity,
+            brandLogo: imageUrl
           });
           byComposite.add(compositeKey);
         } else {
