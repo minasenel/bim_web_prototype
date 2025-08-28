@@ -1,167 +1,356 @@
-# BİM Product Locator Prototype
+# BİM Web Prototype
 
-A full-stack web application prototype for locating BİM products and checking their availability at nearby stores, featuring AI-powered chatbot integration.
+A modern web application prototype for BİM (Turkish retail chain) featuring product search, store location services, and an AI-powered recipe chatbot. Built with Angular frontend, Node.js backend, and integrated with Supabase database and n8n automation workflows.
 
-## Features
+## 🌐 Live Demo
 
-- **Product Search**: Search for products by name with real-time database queries
-- **Store Information**: Display nearest store location and address with geolocation
-- **Stock Availability**: Show current stock quantities from Supabase database
-- **AI Chatbot**: Gemini-powered chatbot for recipe suggestions and product recommendations
-- **n8n Automation**: Automated workflows for product search and store location
-- **Responsive Design**: Modern Angular frontend with clean UI
-- **Real-time API**: Express.js backend with Supabase integration
+**🚀 Try it out: [https://bim-web-prototype.vercel.app/](https://bim-web-prototype.vercel.app/)**
 
-## Prerequisites
+## 🚀 Features
 
-- Node.js 18+ and npm
-- Angular CLI
-- Docker (for n8n)
-- Supabase account
-- Google AI API key (Gemini)
+- **Product Search**: Search products by name with real-time results
+- **Category Browsing**: Browse products by categories with visual category cards
+- **Store Locator**: Find nearest stores based on geolocation
+- **AI Recipe Chatbot**: Interactive chatbot for recipe suggestions and cooking assistance
+- **Brand Integration**: Display brand logos and information
+- **Responsive Design**: Modern, mobile-friendly UI built with Angular
+- **Automation Workflows**: n8n integration for enhanced backend processing
 
-## Setup Instructions
+## 🏗️ Architecture
 
-### 1. Environment Configuration
-
-Create `backend/.env` file with your credentials:
-
-```bash
-# Supabase Configuration
-SUPABASE_URL=your_supabase_project_url_here
-SUPABASE_ANON_KEY=your_supabase_anon_key_here
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
-
-# n8n Webhook URLs
-N8N_SEARCH_WEBHOOK_URL=http://localhost:5678/webhook/searchProduct
-N8N_NEAREST_WEBHOOK_URL=http://localhost:5678/webhook/nearestStore
-N8N_CHATBOT_WEBHOOK_URL=http://localhost:5678/webhook/chatbot
-
-# Google AI API Key
-GOOGLE_AI_API_KEY=your_gemini_api_key_here
-
-# Server Configuration
-PORT=3000
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Frontend      │    ┌─────────────────┐    ┌─────────────────┐
+│   (Angular)     │◄──►│  (Node.js/      │◄──►│  (Automation)   │
+│   Port: 4300    │    │   Express)      │    │   Port: 5678    │
+│                 │    │   Port: 3000    │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                                │
+                                ▼
+                       ┌─────────────────┐
+                       │    Supabase     │
+                       │   (Database)    │
+                       └─────────────────┘
 ```
 
-### 2. Database Setup
+## 🛠️ Tech Stack
 
-1. Create Supabase project
-2. Run SQL commands in Supabase SQL Editor:
-```sql
-CREATE TABLE products (
-  id SERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  brand TEXT,
-  category TEXT
-);
+### Frontend
+- **Framework**: Angular 20
+- **Language**: TypeScript
+- **Styling**: SCSS
+- **HTTP Client**: Angular HttpClient
+- **State Management**: Angular Signals
 
-CREATE TABLE stores (
-  id SERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  latitude REAL NOT NULL,
-  longitude REAL NOT NULL,
-  address TEXT
-);
+### Backend
+- **Runtime**: Node.js
+- **Framework**: Express.js 5
+- **Language**: TypeScript
+- **Database**: Supabase (PostgreSQL)
+- **Authentication**: Supabase Auth
+- **Validation**: Zod
 
-CREATE TABLE stock (
-  product_id INT REFERENCES products(id),
-  store_id INT REFERENCES stores(id),
-  quantity INT NOT NULL DEFAULT 0,
-  PRIMARY KEY(product_id, store_id)
-);
+### Infrastructure
+- **Database**: Supabase
+- **Automation**: n8n
+- **Containerization**: Docker
+- **Environment**: dotenv
+- **Deployment**: Vercel
+
+## 📁 Project Structure
+
+```
+bim_web_prototype/
+├── frontend/                 # Angular application
+│   ├── src/app/             # Main application code
+│   ├── api/                 # API integration files
+│   ├── assets/              # Images and static files
+│   └── package.json         # Frontend dependencies
+├── backend/                  # Node.js server
+│   ├── src/                 # Source code
+│   │   ├── routes/          # API routes
+│   │   ├── services/        # Business logic
+│   │   └── db/              # Database connection
+│   ├── scripts/             # Database seeding
+│   └── package.json         # Backend dependencies
+├── n8n_data/                # n8n workflow data
+├── docker-compose.yml       # Docker services
+└── README.md                # This file
+```
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18+ 
+- npm or yarn
+- Docker and Docker Compose
+- Supabase account and project
+
+### 1. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd bim_web_prototype
+```
+
+### 2. Environment Setup
+
+Create environment files for both frontend and backend:
+
+#### Backend (.env)
+```bash
+cd backend
+cp .env.example .env
+```
+
+Edit `.env` with your Supabase credentials:
+```bash
+PORT=3000
+SUPABASE_URL=your-supabase-url
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_ANON_KEY=your-anon-key
+N8N_SEARCH_WEBHOOK_URL=http://localhost:5678/webhook/search-product
+N8N_NEAREST_WEBHOOK_URL=http://localhost:5678/webhook/nearest-store
+N8N_SHARED_SECRET=your-secret-key
+```
+
+#### Frontend (.env)
+```bash
+cd frontend
+cp config.example.ts config.ts
 ```
 
 ### 3. Install Dependencies
 
 ```bash
-# Backend
+# Install backend dependencies
 cd backend
 npm install
 
-# Frontend
-cd frontend
+# Install frontend dependencies
+cd ../frontend
 npm install
 ```
 
-### 4. Start Services
+### 4. Start n8n (Optional)
 
 ```bash
-# Start n8n (Docker)
-docker-compose up -d
+# Start n8n automation service
+docker-compose up -d n8n
+```
 
-# Start Backend
+Access n8n at: http://localhost:5678
+
+### 5. Start Development Servers
+
+#### Terminal 1 - Backend
+```bash
 cd backend
 npm run dev
+```
 
-# Start Frontend (in new terminal)
+#### Terminal 2 - Frontend
+```bash
+cd frontend
+npm start
+```
+
+### 6. Access the Application
+
+- **Frontend**: http://localhost:4300
+- **Backend API**: http://localhost:3000
+- **n8n**: http://localhost:5678
+- **Live Demo**: [https://bim-web-prototype.vercel.app/](https://bim-web-prototype.vercel.app/)
+
+## 🔧 API Endpoints
+
+### Product Search
+- `GET /api/searchProduct?q=product_name` - Search products by name
+- `GET /api/productsByCategory?category=category_name` - Get products by category
+
+### Store Location
+- `GET /api/nearestStore?lat=41.0550&lng=29.2300&productId=1` - Find nearest store
+
+### Categories
+- `GET /api/categories` - Get all product categories
+- `GET /api/categories-with-images` - Get categories with images
+
+### Brand Information
+- `GET /api/brandLogos` - Get brand logos and information
+
+### Chatbot
+- `POST /api/chat` - Send message to AI recipe chatbot
+
+## 🗄️ Database Schema
+
+The application uses Supabase with the following main tables:
+
+- **products**: Product information, prices, and availability
+- **categories**: Product categories with images
+- **brands3**: Brand information and logos
+- **stores**: Store locations and details
+
+## 🤖 AI Chatbot Features
+
+The integrated chatbot provides:
+- Recipe suggestions based on ingredients
+- Cooking instructions and tips
+- Ingredient substitutions
+- Meal planning assistance
+- Turkish language support
+
+## 🐳 Docker Support
+
+### Start n8n Service
+```bash
+docker-compose up -d n8n
+```
+
+### Stop n8n Service
+```bash
+docker-compose down
+```
+
+## 📱 Features in Detail
+
+### Product Search
+- Real-time search with debounced input
+- Category-based filtering
+- Brand logo display
+- Product images and details
+
+### Store Locator
+- GPS-based location detection
+- Nearest store calculation
+- Store information display
+- Product availability at stores
+
+### Category Browsing
+- Visual category cards
+- Product counts per category
+- Responsive grid layout
+- Image-based navigation
+
+## 🔒 Security Features
+
+- CORS protection between services
+- Environment variable configuration
+- Supabase service role authentication
+- Internal webhook communication only
+
+## 🧪 Testing
+
+### Backend Tests
+```bash
+cd backend
+npm test
+```
+
+### Frontend Tests
+```bash
+cd frontend
+npm test
+```
+
+### API Testing
+```bash
+# Test product search
+curl "http://localhost:3000/api/searchProduct?q=tencere"
+
+# Test category products
+curl "http://localhost:3000/api/productsByCategory?category=Meyve%20ve%20Sebze"
+```
+
+## 🚀 Deployment
+
+### Production Build
+
+#### Frontend
+```bash
 cd frontend
 npm run build
 ```
 
-### 5. Seed Database
-
+#### Backend
 ```bash
 cd backend
-npm run seed
+npm run build
+npm start
 ```
 
-## How to Use
+### Vercel Deployment
+The project is currently deployed on Vercel at [https://bim-web-prototype.vercel.app/](https://bim-web-prototype.vercel.app/)
 
-1. Open `http://localhost:3000` in your browser
-2. Search for products using the search box
-3. Use "Konumumu Kullan" to set your location
-4. Click "En yakın mağazayı bul" to find nearest stores
-5. Use the chatbot (💬) for recipe suggestions
+### Environment Variables
+Ensure all production environment variables are set:
+- Supabase credentials
+- API keys
+- Database connection strings
+- n8n webhook URLs (if using automation)
 
-## Demo Products
+## 🐛 Troubleshooting
 
-The prototype includes sample data for:
-- Kitchen appliances (pots, pans, utensils)
-- Food items (milk, bread, yogurt, cheese)
-- Household items
+### Common Issues
 
-## Technical Architecture
+1. **CORS Errors**
+   - Ensure frontend only calls `/api/*` endpoints
+   - Check backend CORS configuration
 
-- **Frontend**: Angular 17 with modern UI components
-- **Backend**: Node.js + Express.js + TypeScript
-- **Database**: Supabase (PostgreSQL)
-- **Automation**: n8n workflows
-- **AI**: Google Gemini Flash API
-- **Styling**: SCSS with responsive design
+2. **Supabase Connection Issues**
+   - Verify environment variables
+   - Check Supabase project status
+   - Ensure proper API keys
 
-## File Structure
+3. **n8n Connection Problems**
+   - Verify Docker container is running
+   - Check port 5678 availability
+   - Validate webhook URLs in backend
 
-```
-bim_web_prototype/
-├── frontend/           # Angular application
-├── backend/            # Node.js server
-├── docker-compose.yml  # n8n configuration
-├── .gitignore         # Git ignore rules
-└── README.md          # This documentation
-```
+4. **Image Loading Issues**
+   - Check image paths in categories
+   - Verify Supabase storage permissions
+   - Ensure proper image URLs
 
-## Security Notes
+### Logs
 
-- `.env` files are gitignored for security
-- Use `.env.example` as template
-- Never commit API keys or credentials
-- Use environment variables for configuration
+Check application logs for detailed error information:
+- Backend: Console output and error logs
+- Frontend: Browser console and network tab
+- n8n: Docker logs and n8n interface
 
-## Future Enhancements
+## 🤝 Contributing
 
-- Real-time stock updates
-- User authentication
-- Store map integration
-- Product images and reviews
-- Push notifications
-- Mobile app version
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
-## Getting Started
+## 📄 License
 
-1. Follow setup instructions above
-2. Configure environment variables
-3. Start all services
-4. Open `http://localhost:3000`
-5. Start searching for products!
-# Test comment
+This project is licensed under the ISC License.
+
+## 📞 Support
+
+For support and questions:
+- Check the troubleshooting section
+- Review n8n setup documentation
+- Examine API endpoints and responses
+- Check browser console for frontend errors
+- Visit the live demo: [https://bim-web-prototype.vercel.app/](https://bim-web-prototype.vercel.app/)
+
+## 🔄 Updates and Maintenance
+
+- Keep dependencies updated
+- Monitor Supabase usage and limits
+- Review n8n workflow performance
+- Update environment variables as needed
+
+---
+
+**Note**: This is a prototype application. For production use, ensure proper security measures, error handling, and performance optimization are implemented.
+
+**🌐 Live Demo**: [https://bim-web-prototype.vercel.app/](https://bim-web-prototype.vercel.app/)
+
+
